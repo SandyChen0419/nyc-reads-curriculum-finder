@@ -95,7 +95,9 @@ body {
 }
 #resetBtn:hover { border-color: var(--accent); }
 
+.meta { display: inline-flex; gap: 10px; align-items: center; }
 #resultCount { color: var(--muted); font-size: 14px; }
+.badge.source { background: rgba(99,102,241,0.15); border-color: #6366f1; }
 
 .results { margin-top: 18px; }
 .table-wrap {
