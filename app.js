@@ -1,11 +1,18 @@
 /*
 	Config: Link your Google Sheet
-	- Set SHEET_ID to your spreadsheet ID (the long ID in the URL)
-	- Set SHEET_NAME to your tab name (defaults to 'Sheet1')
-	If SHEET_ID is left empty, the app uses the sample dataset below.
+	- If you have a published-to-web link (ends with /pubhtml), set PUBLISHED_SHEET_BASE and tab names below
+	- Otherwise, you can still use SHEET_ID + SHEET_NAME (gviz) as a fallback
+	If neither is set, the app uses the sample dataset below.
 */
-const SHEET_ID = ""; // e.g. 1AbCDeFgHi... (leave empty to use sample data)
-const SHEET_NAME = "Sheet1"; // Tab name in your sheet
+const PUBLISHED_SHEET_BASE = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml";
+const PUBLISHED_TABS = {
+	primary: "Pacing Guide",
+	directory: "School Directories"
+};
+
+// Optional legacy config (kept for compatibility)
+const SHEET_ID = ""; // e.g. 1AbCDeFgHi... (leave empty when using published sheets)
+const SHEET_NAME = "Sheet1"; // Tab name in your sheet (gviz)
 
 /* Sample dataset used as a fallback when no Google Sheet is configured or loading fails. */
 const SAMPLE_DATA = [
@@ -133,6 +140,7 @@ const SAMPLE_DATA = [
 ];
 
 let curriculumRows = [];
+let directoryRows = [];
 
 const els = {
 	date: document.getElementById("filterDate"),
@@ -284,6 +292,26 @@ function mapCsvRowToModel(row, headerMap) {
 	};
 }
 
+// Build URL for published-to-web CSV for a given tab name
+function buildPublishedCsvUrl(publishedBase, sheetName) {
+	const basePrefix = String(publishedBase).split('/pubhtml')[0];
+	return `${basePrefix}/pub?output=csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+async function fetchPublishedCsv(publishedBase, sheetName) {
+	const url = buildPublishedCsvUrl(publishedBase, sheetName);
+	const res = await fetch(url, { cache: "no-store" });
+	if (!res.ok) throw new Error(`Published CSV request failed: ${res.status}`);
+	const text = await res.text();
+	const rows = parseCsv(text);
+	if (!rows.length) return [];
+	const headers = rows[0];
+	const headerMap = buildHeaderMap(headers);
+	const dataRows = rows.slice(1).filter(r => r.some(c => String(c).trim().length > 0));
+	return dataRows.map(r => mapCsvRowToModel(r, headerMap));
+}
+
+// Legacy gviz loader
 async function fetchGoogleSheetCsv(sheetId, sheetName) {
 	const url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
 	const res = await fetch(url, { cache: "no-store" });
@@ -293,39 +321,74 @@ async function fetchGoogleSheetCsv(sheetId, sheetName) {
 	if (!rows.length) return [];
 	const headers = rows[0];
 	const headerMap = buildHeaderMap(headers);
-	// Data from second row onwards
 	const dataRows = rows.slice(1).filter(r => r.some(c => String(c).trim().length > 0));
 	return dataRows.map(r => mapCsvRowToModel(r, headerMap));
 }
 
 async function loadData() {
-	if (!SHEET_ID) {
-		curriculumRows = SAMPLE_DATA.slice();
-		setDataSourceBadge("Sample data");
+	// Prefer published-to-web multi-tab config
+	if (PUBLISHED_SHEET_BASE) {
+		try {
+			setLoading(true, "Loading Google Sheets (published)...");
+			const [primary, directory] = await Promise.all([
+				fetchPublishedCsv(PUBLISHED_SHEET_BASE, PUBLISHED_TABS.primary),
+				fetchPublishedCsv(PUBLISHED_SHEET_BASE, PUBLISHED_TABS.directory)
+			]);
+			curriculumRows = Array.isArray(primary) && primary.length ? primary : [];
+			directoryRows = Array.isArray(directory) ? directory : [];
+			if (!curriculumRows.length) {
+				curriculumRows = SAMPLE_DATA.slice();
+				setDataSourceBadge("Sample data (empty primary)", "warn");
+			} else {
+				setDataSourceBadge(`Google Sheets: ${PUBLISHED_TABS.primary} + ${PUBLISHED_TABS.directory}`);
+			}
+		} catch (err) {
+			console.error(err);
+			curriculumRows = SAMPLE_DATA.slice();
+			directoryRows = [];
+			setDataSourceBadge("Sample data (load failed)", "warn");
+		} finally {
+			setLoading(false);
+		}
 		return;
 	}
-	try {
-		setLoading(true, "Loading Google Sheet...");
-		const data = await fetchGoogleSheetCsv(SHEET_ID, SHEET_NAME);
-		if (Array.isArray(data) && data.length) {
-			curriculumRows = data;
-			setDataSourceBadge(`Google Sheets: ${SHEET_NAME}`);
-		} else {
+
+	// Fallback: single gviz sheet
+	if (SHEET_ID) {
+		try {
+			setLoading(true, "Loading Google Sheet...");
+			const data = await fetchGoogleSheetCsv(SHEET_ID, SHEET_NAME);
+			if (Array.isArray(data) && data.length) {
+				curriculumRows = data;
+				setDataSourceBadge(`Google Sheets: ${SHEET_NAME}`);
+			} else {
+				curriculumRows = SAMPLE_DATA.slice();
+				setDataSourceBadge("Sample data (empty sheet)", "warn");
+			}
+		} catch (err) {
+			console.error(err);
 			curriculumRows = SAMPLE_DATA.slice();
-			setDataSourceBadge("Sample data (empty sheet)", "warn");
+			setDataSourceBadge("Sample data (load failed)", "warn");
+		} finally {
+			setLoading(false);
 		}
-	} catch (err) {
-		console.error(err);
-		curriculumRows = SAMPLE_DATA.slice();
-		setDataSourceBadge("Sample data (load failed)", "warn");
-	} finally {
-		setLoading(false);
+		return;
 	}
+
+	// Default: sample data
+	curriculumRows = SAMPLE_DATA.slice();
+	setDataSourceBadge("Sample data");
 }
 
 function populateFilters() {
-	const districts = uniqueSorted(curriculumRows.map(r => r.district));
-	const grades = uniqueSorted(curriculumRows.map(r => r.grade));
+	const districts = uniqueSorted([
+		...curriculumRows.map(r => r.district),
+		...directoryRows.map(r => r.district)
+	]);
+	const grades = uniqueSorted([
+		...curriculumRows.map(r => r.grade),
+		...directoryRows.map(r => r.grade)
+	]);
 
 	setOptions(els.district, ["All"].concat(districts));
 	setOptions(els.grade, ["All"].concat(grades));
@@ -337,7 +400,7 @@ function populateFilters() {
 function setOptions(selectEl, values) {
 	const prev = selectEl.value;
 	selectEl.innerHTML = "";
-	values.forEach((val, idx) => {
+	values.forEach((val) => {
 		const opt = document.createElement("option");
 		opt.value = val === "All" ? "" : val;
 		opt.textContent = val === "All" ? "— All —" : val;
@@ -351,8 +414,8 @@ function setOptions(selectEl, values) {
 function repopulateSchools() {
 	const selectedDistrict = els.district.value;
 	const relevant = selectedDistrict
-		? curriculumRows.filter(r => r.district === selectedDistrict)
-		: curriculumRows;
+		? [...curriculumRows, ...directoryRows].filter(r => r.district === selectedDistrict)
+		: [...curriculumRows, ...directoryRows];
 	const schools = uniqueSorted(relevant.map(r => r.school));
 	setOptions(els.school, ["All"].concat(schools));
 }
