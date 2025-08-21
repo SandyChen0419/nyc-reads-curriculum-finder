@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Curriculum Lookup</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="app-header">
+        <h1>Curriculum Lookup</h1>
+        <p class="subtitle">Search by date, district, school, and grade</p>
+    </header>
+
+    <main class="container">
+        <section class="filters" aria-label="Filters">
+            <div class="filter-grid">
+                <div class="form-control">
+                    <label for="filterDate">Date</label>
+                    <input id="filterDate" type="date" />
+                </div>
+                <div class="form-control">
+                    <label for="filterDistrict">District</label>
+                    <select id="filterDistrict"></select>
+                </div>
+                <div class="form-control">
+                    <label for="filterSchool">School</label>
+                    <select id="filterSchool"></select>
+                </div>
+                <div class="form-control">
+                    <label for="filterGrade">Grade</label>
+                    <select id="filterGrade"></select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button id="resetBtn" type="button">Reset filters</button>
+                <div id="resultCount" aria-live="polite" aria-atomic="true"></div>
+            </div>
+        </section>
+
+        <section class="results" aria-label="Results">
+            <div class="table-wrap">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>District</th>
+                            <th>School</th>
+                            <th>Grade</th>
+                            <th>Curriculum</th>
+                            <th>Module</th>
+                            <th>Essential Question</th>
+                            <th>Book List</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <span>Built for quick curriculum lookups</span>
+    </footer>
+
+    <script src="./app.js"></script>
+    <noscript>Your browser needs JavaScript enabled to use this tool.</noscript>
+</body>
+    
+</html>
+
