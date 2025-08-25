@@ -1,0 +1,12 @@
+nohup: ignoring input
+ * Serving Flask app 'server'
+ * Debug mode: off
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8010
+ * Running on http://172.30.0.2:8010
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [25/Aug/2025 13:59:13] "GET /api/health HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2025 13:59:21] "GET /api/meta HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2025 13:59:24] "GET /api/meta HTTP/1.1" 200 -
+127.0.0.1 - - [25/Aug/2025 13:59:32] "GET /api/search?district=1&grade=K HTTP/1.1" 200 -

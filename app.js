@@ -1,9 +1,7 @@
 /* global window, document, fetch */
 (function () {
-  const DATA_URL = "/data/sample-data.json";
-
-  /** @type {Array<any>} */
-  let allRows = [];
+  const API_META = "/api/meta";
+  const API_SEARCH = "/api/search";
 
   const els = {
     dateFrom: document.getElementById("dateFrom"),
@@ -64,34 +62,28 @@
     }
   }
 
+  let meta = { districts: [], schools: [], grades: [], curricula: [] };
+
   function buildDerivedOptions() {
-    const districts = unique(allRows.map(r => r.district));
-    populateSelect(els.district, districts);
-
     const selectedDistrict = els.district.value;
-    const schools = unique(allRows
-      .filter(r => !selectedDistrict || r.district === selectedDistrict)
-      .map(r => r.school));
+    populateSelect(els.district, meta.districts);
+    const schools = meta.schools.filter(s => {
+      // When district is selected, we will constrain via API on fetch.
+      return true;
+    });
     populateSelect(els.school, schools);
-
-    const grades = unique(allRows.map(r => r.grade));
-    populateSelect(els.grade, grades);
+    populateSelect(els.grade, meta.grades);
   }
 
   function attachListeners() {
     els.district.addEventListener("change", () => {
-      // rebuild school options constrained by district
-      const selectedDistrict = els.district.value;
-      const schools = unique(allRows
-        .filter(r => !selectedDistrict || r.district === selectedDistrict)
-        .map(r => r.school));
-      populateSelect(els.school, schools);
-      render();
+      // Optionally refine school options in future using server-side meta by district
+      loadResults();
     });
 
     [els.school, els.grade, els.dateFrom, els.dateTo].forEach(el => {
-      el.addEventListener("change", render);
-      el.addEventListener("input", render);
+      el.addEventListener("change", loadResults);
+      el.addEventListener("input", loadResults);
     });
 
     els.resetBtn.addEventListener("click", () => {
@@ -101,27 +93,11 @@
       buildDerivedOptions();
       els.school.value = "";
       els.grade.value = "";
-      render();
+      loadResults();
     });
   }
 
-  function rowMatchesFilters(row) {
-    const from = parseDate(els.dateFrom.value);
-    const to = parseDate(els.dateTo.value);
-    const rowDate = parseDate(row.date);
-
-    if (from && rowDate && rowDate < from) return false;
-    if (to && rowDate && rowDate > to) return false;
-
-    if (els.district.value && row.district !== els.district.value) return false;
-    if (els.school.value && row.school !== els.school.value) return false;
-    if (els.grade.value && String(row.grade) !== els.grade.value) return false;
-
-    return true;
-  }
-
-  function render() {
-    const rows = allRows.filter(rowMatchesFilters);
+  function render(rows) {
     els.resultsCount.textContent = String(rows.length);
 
     els.tbody.innerHTML = "";
@@ -129,7 +105,9 @@
       const tr = document.createElement("tr");
 
       const dateTd = document.createElement("td");
-      dateTd.textContent = toIsoDate(r.date);
+      const s = r.startDate ? toIsoDate(r.startDate) : "";
+      const e = r.endDate ? toIsoDate(r.endDate) : "";
+      dateTd.textContent = s && e ? `${s} → ${e}` : (s || e || "");
       tr.appendChild(dateTd);
 
       const districtTd = document.createElement("td");
@@ -184,17 +162,46 @@
     els.empty.hidden = hasRows;
   }
 
+  async function fetchJSON(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(String(res.status));
+    return res.json();
+  }
+
+  function buildQuery() {
+    const params = new URLSearchParams();
+    if (els.dateFrom.value) params.set("dateFrom", els.dateFrom.value);
+    if (els.dateTo.value) params.set("dateTo", els.dateTo.value);
+    if (els.district.value) params.set("district", els.district.value);
+    if (els.school.value) params.set("school", els.school.value);
+    if (els.grade.value) params.set("grade", els.grade.value);
+    return params.toString();
+  }
+
+  async function loadResults() {
+    try {
+      els.loading.hidden = false;
+      els.error.hidden = true;
+      const q = buildQuery();
+      const url = q ? `${API_SEARCH}?${q}` : API_SEARCH;
+      const rows = await fetchJSON(url);
+      els.loading.hidden = true;
+      render(rows);
+    } catch (err) {
+      console.error(err);
+      els.loading.hidden = true;
+      els.error.hidden = false;
+    }
+  }
+
   async function init() {
     setYear();
     try {
-      const res = await fetch(DATA_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error(String(res.status));
-      const data = await res.json();
-      allRows = Array.isArray(data) ? data : [];
-      els.loading.hidden = true;
+      els.loading.hidden = false;
+      meta = await fetchJSON(API_META);
       buildDerivedOptions();
       attachListeners();
-      render();
+      await loadResults();
     } catch (err) {
       console.error(err);
       els.loading.hidden = true;
