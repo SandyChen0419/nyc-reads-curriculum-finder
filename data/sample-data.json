@@ -1,0 +1,123 @@
+[
+  {
+    "date": "2024-09-03",
+    "district": "Northside",
+    "school": "Maple Elementary",
+    "grade": "K",
+    "curriculum": "HMH Into Reading",
+    "module": "Module 1: Our School Community",
+    "essentialQuestion": "What makes our school a community?",
+    "bookList": ["The Name Jar", "School's First Day of School"]
+  },
+  {
+    "date": "2024-10-01",
+    "district": "Northside",
+    "school": "Maple Elementary",
+    "grade": "1",
+    "curriculum": "HMH Into Reading",
+    "module": "Module 2: Animals and Habitats",
+    "essentialQuestion": "How do animals survive in their habitats?",
+    "bookList": ["Owl Moon", "Over and Under the Snow"]
+  },
+  {
+    "date": "2024-11-05",
+    "district": "Northside",
+    "school": "Oakwood Elementary",
+    "grade": "2",
+    "curriculum": "HMH Into Reading",
+    "module": "Module 3: Communities Then and Now",
+    "essentialQuestion": "How do communities change over time?",
+    "bookList": ["A Chair for My Mother", "Last Stop on Market Street"]
+  },
+  {
+    "date": "2025-01-15",
+    "district": "Eastview",
+    "school": "Riverside Middle",
+    "grade": "6",
+    "curriculum": "EL Education",
+    "module": "Module 1: Journeys and Survival",
+    "essentialQuestion": "What factors influence a character’s survival?",
+    "bookList": ["Inside Out & Back Again", "The Lightning Thief"]
+  },
+  {
+    "date": "2025-02-10",
+    "district": "Eastview",
+    "school": "Riverside Middle",
+    "grade": "7",
+    "curriculum": "EL Education",
+    "module": "Module 2: Working Conditions",
+    "essentialQuestion": "How do authors reveal perspectives on social issues?",
+    "bookList": ["Lyddie", "Bread and Roses, Too"]
+  },
+  {
+    "date": "2025-03-03",
+    "district": "Eastview",
+    "school": "Pinecrest Middle",
+    "grade": "8",
+    "curriculum": "EL Education",
+    "module": "Module 3: Sustainability of the World’s Food Supply",
+    "essentialQuestion": "What makes a solution to a real-world problem viable?",
+    "bookList": ["Omnivore's Dilemma (Young Readers)", "Seedfolks"]
+  },
+  {
+    "date": "2024-09-16",
+    "district": "Westfield",
+    "school": "Lincoln Elementary",
+    "grade": "3",
+    "curriculum": "Wit & Wisdom",
+    "module": "Module 1: The Sea",
+    "essentialQuestion": "How does the sea inspire and challenge us?",
+    "bookList": ["The Raft", "Hello, Lighthouse"]
+  },
+  {
+    "date": "2024-10-21",
+    "district": "Westfield",
+    "school": "Lincoln Elementary",
+    "grade": "4",
+    "curriculum": "Wit & Wisdom",
+    "module": "Module 2: American Revolution",
+    "essentialQuestion": "What does it mean to fight for freedom?",
+    "bookList": ["George vs. George", "Chains"]
+  },
+  {
+    "date": "2024-12-02",
+    "district": "Westfield",
+    "school": "Meadowview Elementary",
+    "grade": "5",
+    "curriculum": "Wit & Wisdom",
+    "module": "Module 3: The Impact of Natural Disasters",
+    "essentialQuestion": "How do people respond to natural disasters?",
+    "bookList": ["Night of the Twisters", "Sugar Changed the World"]
+  },
+  {
+    "date": "2025-04-08",
+    "district": "Northside",
+    "school": "Oakwood Elementary",
+    "grade": "2",
+    "curriculum": "HMH Into Reading",
+    "module": "Module 4: Forces and Motion",
+    "essentialQuestion": "How do forces affect the way things move?",
+    "bookList": ["Motion: Push and Pull, Fast and Slow", "Roller Coaster"]
+  },
+  {
+    "date": "2025-05-12",
+    "district": "Eastview",
+    "school": "Pinecrest Middle",
+    "grade": "6",
+    "curriculum": "EL Education",
+    "module": "Module 4: Epidemics",
+    "essentialQuestion": "How do people respond to epidemics?",
+    "bookList": ["Fever 1793", "An American Plague"]
+  },
+  {
+    "date": "2024-08-26",
+    "district": "Northside",
+    "school": "Maple Elementary",
+    "grade": "K",
+    "curriculum": "HMH Into Reading",
+    "module": "Module 0: Welcome to School",
+    "essentialQuestion": "How do we learn and grow at school?",
+    "bookList": ["All Are Welcome", "The Day You Begin"]
+  }
+]
+
