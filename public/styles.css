@@ -1,3 +1,4 @@
+/* Moved from public/assets/styles.css to public/styles.css */
 /* Basic reset */
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -225,5 +226,4 @@ details.about-more:not([open]) > summary::after { content:" ↓"; }
   line-height: 1.2;
 }
 .book-title a { color: #1D4ED8; text-decoration: underline; text-underline-offset: 2px; }
-
 
