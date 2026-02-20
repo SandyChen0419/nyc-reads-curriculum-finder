@@ -527,7 +527,7 @@ def _meta_from_pacing(rows):
 
 
 @app.get('/meta')
-@app.get('/api/meta')
+
 def api_meta():
     # Debug short-circuit: allow ?debug=1 to verify routing without touching Sheets
     try:
