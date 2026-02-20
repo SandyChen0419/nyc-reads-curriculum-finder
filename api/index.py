@@ -527,6 +527,7 @@ def _meta_from_pacing(rows):
 
 
 @app.get('/meta')
+@app.get('/api/meta')
 def api_meta():
     # Load schools (for districts/schools/curricula)
     schools_headers = set()
@@ -689,6 +690,7 @@ def _parse_reading_list(cell: str):
 
 
 @app.get('/search')
+@app.get('/api/search')
 def api_search():
     # Query params
     q_date = request.args.get('date', '').strip()
@@ -825,6 +827,7 @@ def api_search():
 
 
 @app.get('/modules')
+@app.get('/api/modules')
 def api_modules():
     curriculum = normalize_text(request.args.get('curriculum', '').strip())
     grade = normalize_text(request.args.get('grade', '').strip())
@@ -868,4 +871,10 @@ def api_modules():
 
     modules.sort(key=lambda m: int(m.get('module_number') or 0))
     return json_utf8({'modules': modules})
+
+
+@app.get('/health')
+@app.get('/api/health')
+def api_health():
+    return json_utf8({'ok': True})
 
