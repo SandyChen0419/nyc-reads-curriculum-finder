@@ -1,5 +1,4 @@
 /* global window, document, fetch */
-console.log("[app.js] loaded", new Date().toISOString());
 (function initApp() {
   const els = {
     date: document.getElementById('filterDate'),
