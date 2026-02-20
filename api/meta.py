@@ -1,16 +1,11 @@
-from ._shared import json_response, build_meta
+from .shared import json_response, build_meta  # adjust import if needed
 
 def handler(request):
-    # CORS and OPTIONS preflight
-    if request.method == 'OPTIONS':
-        return json_response({'ok': True}, 204)
-    # Debug fast path
-    try:
-        dbg = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
-    except Exception:
-        dbg = False
-    if dbg:
-        return json_response({'ok': True, 'route': 'meta'})
-    data = build_meta()
-    return json_response(data, 200)
+    if request.method == "OPTIONS":
+        return json_response({}, status=200)
 
+    # quick debug to prove routing works
+    if request.args.get("debug") == "1":
+        return json_response({"ok": True, "route": "meta"}, status=200)
+
+    return json_response(build_meta(), status=200)
