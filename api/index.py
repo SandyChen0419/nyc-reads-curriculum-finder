@@ -529,6 +529,12 @@ def _meta_from_pacing(rows):
 @app.get('/meta')
 @app.get('/api/meta')
 def api_meta():
+    # Debug short-circuit: allow ?debug=1 to verify routing without touching Sheets
+    try:
+        if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
+            return json_utf8({'ok': True, 'route': 'meta'})
+    except Exception:
+        pass
     # Load schools (for districts/schools/curricula)
     schools_headers = set()
     try:
