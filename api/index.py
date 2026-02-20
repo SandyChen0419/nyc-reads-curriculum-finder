@@ -526,7 +526,14 @@ def _meta_from_pacing(rows):
     }
 
 
-@app.get('/meta')
+@app.get("/meta")
+def meta(): ...
+
+@app.get("/modules")
+def modules(): ...
+
+@app.get("/search")
+def search(): ...
 
 def api_meta():
     # Debug short-circuit: allow ?debug=1 to verify routing without touching Sheets
