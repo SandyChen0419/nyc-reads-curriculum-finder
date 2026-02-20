@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NYC Curriculum Finder</title>
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header class="hero-contained">
+      <div class="container">
+        <div class="hero-frame">
+          <img class="hero-img" src="/assets/nycreads-web-header.png" alt="NYC Reads header">
+          <div class="hero-overlay">
+            <h1 class="hero-title">NYC Reads Curriculum Finder</h1>
+            <p class="hero-subtitle">Discover curriculum, themes, and reading materials for NYC schools</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="about-wrap">
+      <div class="container">
+        <div class="card about-card">
+          <div class="card-head">
+            <h2>About This Tool</h2>
+          </div>
+
+          <p class="about-intro">
+            This curriculum search tool helps identify exactly what students are learning in literacy at a given school — including the curriculum, current module, essential questions, and book lists.
+          </p>
+
+          <div class="info-note">
+            <strong>Disclaimer:</strong> This tool is intended to provide general information about district and school curriculum implementation. Timelines and materials may vary by school or classroom. For the most accurate and up-to-date information, please contact your school directly.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="container">
+      <section id="filters" class="card section" aria-label="Filters">
+        <h2>Find Your Curriculum</h2>
+        <form id="filtersForm" class="grid-2" style="align-items:end;">
+          <div class="filter">
+            <label for="filterDistrict">District</label>
+            <select id="filterDistrict"></select>
+          </div>
+
+          <div class="filter">
+            <label for="schoolInput">School</label>
+            <div class="typeahead">
+              <input id="schoolInput" list="schoolList" placeholder="Type to search schools…" />
+              <button id="clearSchool" type="button" class="btn btn-secondary" aria-label="Clear school">×</button>
+              <datalist id="schoolList"></datalist>
+            </div>
+          </div>
+
+          <div class="filter">
+            <label for="filterGrade">Grade Level</label>
+            <select id="filterGrade"></select>
+          </div>
+
+          <div class="filter">
+            <label for="filterDate">Date <span class="hint">(We’ll find the curriculum module for this date)</span></label>
+            <input type="date" id="filterDate" />
+          </div>
+
+          <div class="filter actions" style="grid-column: 1 / -1; display:flex; gap:8px;">
+            <button id="clearFilters" type="button" class="btn btn-secondary">Clear</button>
+            <button id="searchBtn" type="submit" class="btn btn-primary">Find Curriculum</button>
+          </div>
+        </form>
+      </section>
+
+      <div class="divider" role="separator" aria-hidden="true"></div>
+
+      <section id="results" class="section" aria-label="Curriculum Information">
+        <h2>Curriculum Information</h2>
+        <div id="resultsMount"></div>
+      </section>
+    </main>
+
+    <noscript>
+      <div class="container" style="margin-top: 1rem; color: #b00020">
+        This site requires JavaScript to function. Please enable JavaScript in your browser.
+      </div>
+    </noscript>
+
+    <script src="scripts/app.js" defer></script>
+  </body>
+  </html>
+
+

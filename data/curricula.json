@@ -1,0 +1,114 @@
+[
+  {
+    "district": "District 1",
+    "school": "PS 001 - Alpha Academy",
+    "grade": "3",
+    "curriculum": "HMH Into Reading",
+    "modules": [
+      {
+        "name": "Module 1: Building a Community of Learners",
+        "startDate": "2025-08-01",
+        "endDate": "2025-09-15",
+        "essentialQuestion": "How do we become a community of learners?",
+        "books": ["The Name Jar", "Those Shoes", "Each Kindness"]
+      },
+      {
+        "name": "Module 2: Exploration and Discovery",
+        "startDate": "2025-09-16",
+        "endDate": "2025-10-31",
+        "essentialQuestion": "What can we discover by exploring the world around us?",
+        "books": ["My Librarian Is a Camel", "Me...Jane"]
+      }
+    ]
+  },
+  {
+    "district": "District 1",
+    "school": "PS 007 - East River School",
+    "grade": "4",
+    "curriculum": "EL Education",
+    "modules": [
+      {
+        "name": "Module 1: Animal Defense Mechanisms",
+        "startDate": "2025-09-01",
+        "endDate": "2025-10-10",
+        "essentialQuestion": "How do animals' bodies and behaviors help them survive?",
+        "books": ["Animal Behavior", "Venom"]
+      },
+      {
+        "name": "Module 2: The American Revolution",
+        "startDate": "2025-10-11",
+        "endDate": "2025-11-20",
+        "essentialQuestion": "What led to the American Revolution and how did it change lives?",
+        "books": ["Chains", "Liberty! How the Revolutionary War Began"]
+      }
+    ]
+  },
+  {
+    "district": "District 2",
+    "school": "PS 014 - Beta School",
+    "grade": "5",
+    "curriculum": "Wit & Wisdom",
+    "modules": [
+      {
+        "name": "Module 1: Cultivating Culture",
+        "startDate": "2025-08-15",
+        "endDate": "2025-09-30",
+        "essentialQuestion": "How do the arts shape and reflect culture?",
+        "books": ["The Red Pencil", "Esperanza Rising"]
+      },
+      {
+        "name": "Module 2: The Renaissance",
+        "startDate": "2025-10-01",
+        "endDate": "2025-11-15",
+        "essentialQuestion": "How did ideas of the Renaissance transform Europe?",
+        "books": ["Leonardo's Horse", "The Second Mrs. Gioconda"]
+      }
+    ]
+  },
+  {
+    "district": "District 2",
+    "school": "PS 099 - Forest Hills",
+    "grade": "3",
+    "curriculum": "EL Education",
+    "modules": [
+      {
+        "name": "Module 1: Overcoming Challenges",
+        "startDate": "2025-08-20",
+        "endDate": "2025-09-25",
+        "essentialQuestion": "How do people overcome challenges?",
+        "books": ["Peter Pan", "Waiting for the Biblioburro"]
+      },
+      {
+        "name": "Module 2: Adaptations",
+        "startDate": "2025-09-26",
+        "endDate": "2025-11-05",
+        "essentialQuestion": "How do living things adapt to survive?",
+        "books": ["Who Was Charles Darwin?", "Galápagos George"]
+      }
+    ]
+  },
+  {
+    "district": "District 3",
+    "school": "PS 123 - West Side Elementary",
+    "grade": "2",
+    "curriculum": "HMH Into Reading",
+    "modules": [
+      {
+        "name": "Module 1: Communities Then and Now",
+        "startDate": "2025-08-10",
+        "endDate": "2025-09-20",
+        "essentialQuestion": "How are communities similar and different across time?",
+        "books": ["Abuela", "City Green"]
+      },
+      {
+        "name": "Module 2: Nature's Wonders",
+        "startDate": "2025-09-21",
+        "endDate": "2025-10-31",
+        "essentialQuestion": "What makes nature both powerful and fragile?",
+        "books": ["Owl Moon", "A River Ran Wild"]
+      }
+    ]
+  }
+]
+
+
