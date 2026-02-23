@@ -4,8 +4,6 @@
     { "src": "api/index.py", "use": "@vercel/python" }
   ],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index?__path=/api/:path*" },
-    { "source": "/", "destination": "/public/index.html" },
-    { "source": "/(.*)", "destination": "/public/$1" }
+    { "source": "/api/(.*)", "destination": "/api/index.py?__path=/$1" }
   ]
 }
