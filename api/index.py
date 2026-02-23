@@ -65,6 +65,7 @@ def api_search():
     return json_utf8(data)
 
 @app.route('/api/index.py', methods=['GET', 'OPTIONS'])
+@app.route('/api/index', methods=['GET', 'OPTIONS'])
 def api_dispatch_rewrite():
     """
     Dispatcher for Vercel rewrite that forwards original path via ?__path=/api/xxx
@@ -104,4 +105,3 @@ def api_dispatch_rewrite():
         }
         return json_utf8(build_search(params))
     return json_utf8({'error': 'Not Found', 'path': orig}, 404)
-
