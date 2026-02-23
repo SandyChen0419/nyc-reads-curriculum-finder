@@ -1,7 +1,7 @@
 import json
 from flask import Flask, request, make_response, jsonify
 
-from ._shared import build_meta, build_modules, build_search
+from api._shared import build_meta, build_modules, build_search
 
 # Vercel: export a Flask WSGI app at module scope
 app = Flask(__name__)
@@ -105,3 +105,4 @@ def api_dispatch_rewrite():
         }
         return json_utf8(build_search(params))
     return json_utf8({'error': 'Not Found', 'path': orig}, 404)
+
