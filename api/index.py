@@ -63,3 +63,45 @@ def api_search():
     }
     data = build_search(params)
     return json_utf8(data)
+
+@app.route('/api/index.py', methods=['GET', 'OPTIONS'])
+def api_dispatch_rewrite():
+    """
+    Dispatcher for Vercel rewrite that forwards original path via ?__path=/api/xxx
+    """
+    if request.method == 'OPTIONS':
+        return json_utf8({'ok': True}, 204)
+    orig = (request.args.get('__path') or '').strip() or request.path
+    # Normalize and strip query part if any leaked
+    orig = orig.split('?', 1)[0]
+    # Expect formats like /api/meta, /api/modules, /api/search
+    tail = orig
+    if tail.startswith('/'):
+        tail = tail[1:]
+    if tail.startswith('api/'):
+        tail = tail[4:]
+    tail = tail.strip('/')
+    if tail == 'health':
+        return json_utf8({'ok': True})
+    if tail == 'meta':
+        # support debug=1 passthrough
+        try:
+            if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
+                return json_utf8({'ok': True, 'route': 'meta'})
+        except Exception:
+            pass
+        return json_utf8(build_meta())
+    if tail == 'modules':
+        curriculum = (request.args.get('curriculum') or '').strip()
+        grade = (request.args.get('grade') or '').strip()
+        return json_utf8(build_modules(curriculum, grade))
+    if tail == 'search':
+        params = {
+            'date': (request.args.get('date') or '').strip(),
+            'district': (request.args.get('district') or '').strip(),
+            'school': (request.args.get('school') or '').strip(),
+            'grade': (request.args.get('grade') or '').strip(),
+        }
+        return json_utf8(build_search(params))
+    return json_utf8({'error': 'Not Found', 'path': orig}, 404)
+
