@@ -951,3 +951,31 @@ def build_school_grades():
         if district and school:
             items.append({'district': district, 'school': school, 'grades': grades})
     return {'items': items}
+
+def build_grades_lookup_norm() -> dict[str, list[str]]:
+    """
+    Build and return a dictionary keyed by normalized school name -> allowed grade tokens.
+    """
+    try:
+        schools_rows = _fetch_schools_csv()
+    except Exception:
+        schools_rows = []
+    out: dict[str, list[str]] = {}
+    for r in schools_rows:
+        school = (
+            r.get(_normalize_header('School Name - NYC DOE')) or
+            r.get('school_name_-_nyc_doe') or
+            r.get('school_name_nyc_doe') or
+            r.get('school_name') or
+            r.get('school') or ''
+        )
+        school_disp = str(school or '').strip()
+        if not school_disp:
+            continue
+        grade_cell = (
+            r.get('grade') or r.get('grades') or r.get('grades_served')
+            or r.get('grade_level') or r.get('grade_levels') or ''
+        )
+        grades = _normalize_grade_tokens(str(grade_cell))
+        out[_norm_school_name(school_disp)] = grades
+    return out
