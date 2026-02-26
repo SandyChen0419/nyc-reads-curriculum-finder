@@ -145,6 +145,10 @@
     const bookList = (books || []).map(b => {
       const title = b && b.title ? String(b.title) : '';
       const link = b && b.url ? String(b.url) : '';
+      console.log('[UI] renderResultCard', {
+  district, school, grade,
+  booksLen: Array.isArray(books) ? books.length : 0
+});
       const cover = b && (b.coverImageUrl || b.coverimageurl) ? String(b.coverImageUrl || b.coverimageurl) : '';
       const imgTag = cover ? ('<img src="' + cover + '" alt="' + escapeHTML(title || 'Book cover') + '" onerror="this.onerror=null; this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" />') : '';
       const img = link && imgTag
@@ -156,6 +160,10 @@
     }).join('');
     // Recommended Text section removed
 
+const soraNote = '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
+console.log('[UI] adding Sora note', { hasSoraNote: true });
+    return (
+    
     return (
       '<div class="card section">' +
         '<div class="grid-2" style="align-items:start;">' +
@@ -307,6 +315,8 @@
     if (prevBtn && nextBtn) {
       prevBtn.onclick = () => { if (state.activeIndex > 0) { state.activeIndex--; renderResultFromState(); updateNavButtons(); } };
       nextBtn.onclick = () => { if (state.activeIndex < state.modules.length - 1) { state.activeIndex++; renderResultFromState(); updateNavButtons(); } };
+    const hasNote = !!document.querySelector('.sora-note');
+console.log('[UI] results injected; sora-note present?', hasNote);
     }
   }
 
