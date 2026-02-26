@@ -3,3 +3,7 @@
 .DS_Store
 .venv/
 *.xlsx
+
+.DS_Store
+.venv/
+*.xlsx
