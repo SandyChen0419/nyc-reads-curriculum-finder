@@ -48,8 +48,11 @@
     return out;
   }
 
+  function normKeyPart(s) {
+    return String(s || '').trim().toLowerCase();
+  }
   function schoolKey(district, school) {
-    return String(district || '').trim() + '|' + String(school || '').trim();
+    return normKeyPart(district) + '|' + normKeyPart(school);
   }
 
   function setDefaultDate() {
@@ -171,8 +174,8 @@
   }
 
   function recomputeGradeOptionsForSelection() {
-    const districtVal = String(els.district.value || '').trim();
-    const schoolVal = String(els.schoolInput.value || '').trim();
+    const districtVal = normKeyPart(els.district.value || '');
+    const schoolVal = normKeyPart(els.schoolInput.value || '');
     const key = schoolKey(districtVal, schoolVal);
     const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
       ? state.gradesBySchool[key]
