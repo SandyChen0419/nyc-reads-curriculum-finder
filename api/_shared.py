@@ -503,8 +503,13 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         if t == 'PK' or t == 'K' or t.isdigit():
             if t not in out:
                 out.append(t)
-    # Split by common separators
-    for part in re.split(r"[,;/]+", txt):
+    # First split by comma/semicolon/slash; if none, we'll split by whitespace later
+    prelim = re.split(r"[,;/]+", txt)
+    if len(prelim) == 1:
+        parts_iter = [prelim[0]]
+    else:
+        parts_iter = prelim
+    for part in parts_iter:
         s = part.strip()
         if not s:
             continue
@@ -523,7 +528,13 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
                 for n in rng:
                     add(from_num(n))
                 continue
-        add(s)
+        # If still a long whitespace-delimited list like "OK 1 2 3 4", split by spaces
+        subs = re.split(r"\s+", s)
+        if len(subs) > 1:
+            for sub in subs:
+                add(sub)
+        else:
+            add(s)
     return out
 
 
@@ -563,24 +574,34 @@ def build_meta():
         return ''
     missing_counts = {'district': 0, 'school': 0, 'grade': 0, 'curriculum': 0}
 
+    def extract_district_number(row: dict) -> str:
+        # Prefer explicit District # / number
+        preferred = [ _normalize_header('District #'), 'district_number', 'district_no' ]
+        for k in preferred:
+            v = row.get(k)
+            if v:
+                m = re.search(r"(\d+)", str(v))
+                if m:
+                    return m.group(1)
+        # Fallback: any 'district' containing a number
+        v2 = pick_value(row, [], contains_token='district')
+        if v2:
+            m = re.search(r"(\d+)", str(v2))
+            if m:
+                return m.group(1)
+        return ''
+
+    def extract_school_name(row: dict) -> str:
+        for k in school_candidates:
+            v = row.get(k)
+            if v:
+                return str(v).strip()
+        v2 = pick_value(row, [], contains_token='school')
+        return str(v2 or '').strip()
+
     for r in schools_rows:
-        district = ''
-        for key in district_candidates:
-            val = r.get(key)
-            if val:
-                district = str(val).strip()
-                break
-        if not district:
-            # fallback: any key containing 'district'
-            district = str(pick_value(r, [], contains_token='district') or '').strip()
-        school = ''
-        for key in school_candidates:
-            val = r.get(key)
-            if val:
-                school = str(val).strip()
-                break
-        if not school:
-            school = str(pick_value(r, [], contains_token='school') or '').strip()
+        district = extract_district_number(r)
+        school = extract_school_name(r)
         curriculum = ''
         for key in curriculum_candidates:
             val = r.get(key)
@@ -604,6 +625,7 @@ def build_meta():
             # Build lookup key (district|school), normalized like the UI
             key = f"{_norm_key_part(district)}|{_norm_key_part(school)}"
             grades_by_school[key] = school_grade_tokens
+            # Also build a by-school-name map per requirements
         if curriculum:
             curricula_set.add(curriculum)
         for gt in school_grade_tokens:
@@ -654,13 +676,18 @@ def build_meta():
         schools_by_district_map.setdefault(d, []).append(s)
     for d in list(schools_by_district_map.keys()):
         schools_by_district_map[d] = sorted(list(set(schools_by_district_map[d])))
+    # Also build mapping keyed by school name only
+    grades_by_school_name: dict[str, list[str]] = {}
+    for item in schools_list:
+        grades_by_school_name[item['school']] = item.get('grades') or []
+
     meta_out = {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
         'grades': grades_sorted,
         'curricula': sorted(curricula_set),
         'schoolsByDistrict': schools_by_district_map,
-        'gradesBySchool': grades_by_school,
+        'gradesBySchool': grades_by_school_name,
     }
     # Attach light debug summary for troubleshooting (not heavy rows)
     try:
