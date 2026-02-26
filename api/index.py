@@ -30,20 +30,34 @@ def api_health():
 def api_meta():
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
-    dbg = False
     try:
-        dbg = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
-    except Exception:
         dbg = False
-    data = build_meta()
-    if dbg:
-        # Attach expanded debug without short-circuiting
         try:
-            extra = build_meta_debug()
-            data['_debug_summary'] = extra
-        except Exception as e:
-            data['_debug_summary'] = {'error': str(e)}
-    return json_utf8(data)
+            dbg = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
+        except Exception:
+            dbg = False
+        data = build_meta()
+        if dbg:
+            # Attach expanded debug without short-circuiting
+            try:
+                extra = build_meta_debug()
+                data['_debug_summary'] = extra
+            except Exception as e:
+                data['_debug_summary'] = {'error': str(e)}
+        data.setdefault('error', None)
+        return json_utf8(data)
+    except Exception as e:
+        # Never return 500; preserve structure expected by frontend
+        safe = {
+            'districts': [],
+            'schools': [],
+            'grades': [],
+            'curricula': [],
+            'schoolsByDistrict': {},
+            'gradesBySchool': {},
+            'error': str(e),
+        }
+        return json_utf8(safe)
 
 
 @app.route('/modules', methods=['GET', 'OPTIONS'])
@@ -62,26 +76,31 @@ def api_modules():
 def api_search():
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
-    params = {
-        'date': (request.args.get('date') or '').strip(),
-        'district': (request.args.get('district') or '').strip(),
-        'school': (request.args.get('school') or '').strip(),
-        'grade': (request.args.get('grade') or '').strip(),
-    }
-    # Strict grade validation based on School Directories mapping
     try:
-        school_name = params['school']
-        grade_sel = params['grade']
-        if school_name and grade_sel:
-            lookup = build_grades_lookup_norm()
-            allowed = lookup.get(_norm_school_name(school_name), [])
-            if allowed and grade_sel not in allowed:
-                return json_utf8({'results': [], 'error': None, 'note': 'information_not_available'})
-    except Exception:
-        # On any error, fall through to existing behavior
-        pass
-    data = build_search(params)
-    return json_utf8(data)
+        params = {
+            'date': (request.args.get('date') or '').strip(),
+            'district': (request.args.get('district') or '').strip(),
+            'school': (request.args.get('school') or '').strip(),
+            'grade': (request.args.get('grade') or '').strip(),
+        }
+        # Strict grade validation based on School Directories mapping
+        try:
+            school_name = params['school']
+            grade_sel = params['grade']
+            if school_name and grade_sel:
+                lookup = build_grades_lookup_norm()
+                allowed = lookup.get(_norm_school_name(school_name), [])
+                if allowed and grade_sel not in allowed:
+                    return json_utf8({'results': [], 'error': None, 'note': 'information_not_available'})
+        except Exception:
+            # On any error, fall through to existing behavior
+            pass
+        data = build_search(params)
+        data.setdefault('error', None)
+        return json_utf8(data)
+    except Exception as e:
+        # Never return 500; preserve expected list shape
+        return json_utf8({'results': [], 'error': str(e)})
 
 @app.route('/school-grades', methods=['GET', 'OPTIONS'])
 @app.route('/api/school-grades', methods=['GET', 'OPTIONS'])
