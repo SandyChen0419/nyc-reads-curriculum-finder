@@ -21,6 +21,10 @@ logger.setLevel(logging.INFO)
 # Track last-seen header order for logging/index mapping
 LAST_PACING_HEADERS_ORDER = []
 LAST_SCHOOLS_HEADERS_ORDER = []
+LAST_FETCH_INFO = {
+    'schools': {'used_url': '', 'candidates': []},
+    'pacing': {'used_url': '', 'candidates': []},
+}
 
 # Configuration for Google Sheet source
 SHEET_ID = os.environ.get('SHEET_ID', '12xrUodG0RyTpAlfo6_CO7phNY2LdzjH9mqieJQIV3Xs').strip()
@@ -299,62 +303,69 @@ def _fetch_csv_from_url(url: str, context: str = ''):
 
 
 def _fetch_schools_csv():
-    global LAST_SCHOOLS_HEADERS_ORDER
-    # Prefer direct export using SHEET_ID + gid when present
+    global LAST_SCHOOLS_HEADERS_ORDER, LAST_FETCH_INFO
+    candidates = []
+    # 1) SHEET_ID + GID
     if SHEET_ID and GID_FOR_SCHOOLS:
-        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_SCHOOLS}"
-        rows = _fetch_csv_from_url(url)
-        try:
-            if rows:
-                LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
-        except Exception:
-            pass
-        return rows
-    # If SCHOOLS_CSV is a direct gid export, use it
+        candidates.append(f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_SCHOOLS}")
+    # 2) Explicit CSV with gid
     if SCHOOLS_CSV and 'gid=' in SCHOOLS_CSV:
-        rows = _fetch_csv_from_url(SCHOOLS_CSV)
+        candidates.append(SCHOOLS_CSV)
+    # 3) Build from tab name as fallback
+    for u in _build_csv_urls(TAB_SCHOOLS, GID_FOR_SCHOOLS):
+        candidates.append(u)
+    # Deduplicate preserving order
+    seen = set(); cands = []
+    for u in candidates:
+        if u not in seen:
+            cands.append(u); seen.add(u)
+    LAST_FETCH_INFO['schools']['candidates'] = cands
+    last_err = None
+    for url in cands:
         try:
+            rows = _fetch_csv_from_url(url)
             if rows:
                 LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
-        except Exception:
-            pass
-        return rows
-    # Otherwise fetch by tab name to ensure correct sheet
-    rows = _fetch_sheet(TAB_SCHOOLS, GID_FOR_SCHOOLS)
-    try:
-        if rows:
-            LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
-    except Exception:
-        pass
-    return rows
+                LAST_FETCH_INFO['schools']['used_url'] = url
+                return rows
+            last_err = RuntimeError('no rows parsed')
+        except Exception as e:
+            last_err = e
+            continue
+    raise RuntimeError(f"Failed to load School Directories CSV: {last_err}")
 
 
 def _fetch_pacing_csv():
-    global LAST_PACING_HEADERS_ORDER
+    global LAST_PACING_HEADERS_ORDER, LAST_FETCH_INFO
+    candidates = []
+    # 1) Explicit PACING_CSV
     if PACING_CSV:
-        rows = _fetch_csv_from_url(PACING_CSV, context='pacing')
-        try:
-            if rows:
-                LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
-        except Exception:
-            pass
-        return rows
+        candidates.append(PACING_CSV)
+    # 2) SHEET_ID + GID
     if SHEET_ID and GID_FOR_PACING:
-        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_PACING}"
-        rows = _fetch_csv_from_url(url, context='pacing')
+        candidates.append(f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_PACING}")
+    # 3) Build from tab name
+    for u in _build_csv_urls(TAB_PACING, GID_FOR_PACING):
+        candidates.append(u)
+    # Deduplicate
+    seen = set(); cands = []
+    for u in candidates:
+        if u not in seen:
+            cands.append(u); seen.add(u)
+    LAST_FETCH_INFO['pacing']['candidates'] = cands
+    last_err = None
+    for url in cands:
         try:
+            rows = _fetch_csv_from_url(url, context='pacing')
             if rows:
                 LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
-        except Exception:
-            pass
-        return rows
-    rows = _fetch_sheet(TAB_PACING, GID_FOR_PACING)
-    try:
-        if rows:
-            LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
-    except Exception:
-        pass
-    return rows
+                LAST_FETCH_INFO['pacing']['used_url'] = url
+                return rows
+            last_err = RuntimeError('no rows parsed')
+        except Exception as e:
+            last_err = e
+            continue
+    raise RuntimeError(f"Failed to load Pacing CSV: {last_err}")
 
 
 def _md_to_date(md: str, year: int) -> date:
@@ -539,6 +550,19 @@ def build_meta():
         'school_name', 'school'
     }
     curriculum_candidates = { _normalize_header('Curriculum'), 'curriculum', 'literacy_curriculum' }
+    # Helper to pick flexible header names
+    def pick_value(row, candidates, contains_token=None):
+        for key in candidates:
+            val = row.get(key)
+            if val:
+                return val
+        if contains_token:
+            for k, v in row.items():
+                if contains_token in k and v:
+                    return v
+        return ''
+    missing_counts = {'district': 0, 'school': 0, 'grade': 0, 'curriculum': 0}
+
     for r in schools_rows:
         district = ''
         for key in district_candidates:
@@ -546,12 +570,17 @@ def build_meta():
             if val:
                 district = str(val).strip()
                 break
+        if not district:
+            # fallback: any key containing 'district'
+            district = str(pick_value(r, [], contains_token='district') or '').strip()
         school = ''
         for key in school_candidates:
             val = r.get(key)
             if val:
                 school = str(val).strip()
                 break
+        if not school:
+            school = str(pick_value(r, [], contains_token='school') or '').strip()
         curriculum = ''
         for key in curriculum_candidates:
             val = r.get(key)
@@ -564,6 +593,10 @@ def build_meta():
             or r.get('grade_level') or r.get('grade_levels') or ''
         )
         school_grade_tokens = _normalize_grade_tokens(str(grade_cell))
+        if not district: missing_counts['district'] += 1
+        if not school: missing_counts['school'] += 1
+        if not grade_cell: missing_counts['grade'] += 1
+        if not curriculum: missing_counts['curriculum'] += 1
         if district:
             districts_set.add(district)
         if district and school:
@@ -621,7 +654,7 @@ def build_meta():
         schools_by_district_map.setdefault(d, []).append(s)
     for d in list(schools_by_district_map.keys()):
         schools_by_district_map[d] = sorted(list(set(schools_by_district_map[d])))
-    return {
+    meta_out = {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
         'grades': grades_sorted,
@@ -629,6 +662,95 @@ def build_meta():
         'schoolsByDistrict': schools_by_district_map,
         'gradesBySchool': grades_by_school,
     }
+    # Attach light debug summary for troubleshooting (not heavy rows)
+    try:
+        meta_out['_debug_summary'] = {
+            'row_count_raw': len(schools_rows),
+            'header_row': list(schools_rows[0].keys()) if schools_rows else [],
+            'missing_field_counts': missing_counts,
+        }
+    except Exception:
+        pass
+    return meta_out
+
+def build_meta_debug():
+    """
+    Returns detailed debug info for meta building without affecting /api/meta output.
+    """
+    try:
+        schools_rows = _fetch_schools_csv()
+    except Exception as e:
+        schools_rows = []
+        logger.error("Fetch schools failed: %s", e)
+    try:
+        pacing_rows = _fetch_pacing_csv()
+    except Exception as e:
+        pacing_rows = []
+        logger.error("Fetch pacing failed: %s", e)
+    header_row = list(schools_rows[0].keys()) if schools_rows else []
+    first_3 = schools_rows[:3] if schools_rows else []
+    # Compute missing field counts with flexible mapping
+    district_candidates = {
+        _normalize_header('District #'), 'district', 'district_number', 'district_no',
+        'district_id', 'districtid'
+    }
+    school_candidates = {
+        _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
+        'school_name', 'school'
+    }
+    curriculum_candidates = { _normalize_header('Curriculum'), 'curriculum', 'literacy_curriculum' }
+    def pick_value(row, candidates, contains_token=None):
+        for key in candidates:
+            val = row.get(key)
+            if val:
+                return val
+        if contains_token:
+            for k, v in row.items():
+                if contains_token in k and v:
+                    return v
+        return ''
+    missing = {'district': 0, 'school': 0, 'grade': 0, 'curriculum': 0}
+    for r in schools_rows:
+        d = ''
+        for key in district_candidates:
+            val = r.get(key)
+            if val: d = str(val).strip(); break
+        if not d: d = str(pick_value(r, [], contains_token='district') or '').strip()
+        s = ''
+        for key in school_candidates:
+            val = r.get(key)
+            if val: s = str(val).strip(); break
+        if not s: s = str(pick_value(r, [], contains_token='school') or '').strip()
+        c = ''
+        for key in curriculum_candidates:
+            val = r.get(key)
+            if val: c = str(val).strip(); break
+        gcell = r.get('grade') or r.get('grades') or r.get('grades_served') or r.get('grade_level') or r.get('grade_levels') or ''
+        if not d: missing['district'] += 1
+        if not s: missing['school'] += 1
+        if not gcell: missing['grade'] += 1
+        if not c: missing['curriculum'] += 1
+    debug = {
+        'sheet_urls_used': {
+            'schools': LAST_FETCH_INFO['schools']['used_url'],
+            'pacing': LAST_FETCH_INFO['pacing']['used_url'],
+        },
+        'tabs_gids_used': {
+            'TAB_SCHOOLS': TAB_SCHOOLS,
+            'TAB_PACING': TAB_PACING,
+            'GID_FOR_SCHOOLS': GID_FOR_SCHOOLS,
+            'GID_FOR_PACING': GID_FOR_PACING,
+        },
+        'candidates': {
+            'schools': LAST_FETCH_INFO['schools']['candidates'],
+            'pacing': LAST_FETCH_INFO['pacing']['candidates'],
+        },
+        'row_count_raw': len(schools_rows),
+        'header_row': header_row,
+        'first_3_rows': first_3,
+        'missing_field_counts': missing,
+    }
+    return debug
 
 
 def build_modules(curriculum: str, grade: str):
