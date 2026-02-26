@@ -46,6 +46,7 @@
 
   async function loadMeta() {
     try {
+      // Always insert defaults first so dropdowns are never empty
       if (els.district) setOptions(els.district, [], 'All Districts');
       if (els.grade) setOptions(els.grade, [], 'All Grades');
 
@@ -54,6 +55,7 @@
       const json = await res.json();
       state.meta = json || {};
 
+      // Build schoolsByDistrict from flat schools array if provided
       const byDistrict = {};
       if (Array.isArray(json.schools)) {
         for (const s of json.schools) {
@@ -63,12 +65,14 @@
           if (!byDistrict[d]) byDistrict[d] = [];
           byDistrict[d].push(name);
         }
+        // dedupe/sort
         Object.keys(byDistrict).forEach(d => {
           byDistrict[d] = Array.from(new Set(byDistrict[d])).sort((a, b) => a.localeCompare(b));
         });
       }
       state.schoolsByDistrict = byDistrict;
 
+      // Sort districts numerically, render as strings; fallback from schoolsByDistrict keys
       const districtsFromMeta = Array.isArray(json.districts) ? json.districts : [];
       const numericSorted = Array.from(new Set(districtsFromMeta))
         .map(d => Number(String(d).trim()))
@@ -88,8 +92,21 @@
       setOptions(els.grade, json.grades || [], 'All Grades');
       const allSchools = Object.values(byDistrict).flat().sort((a, b) => a.localeCompare(b));
       setDatalistOptions(els.schoolList, allSchools);
+
+      console.log('[Meta] Loaded', {
+        schoolsCount: Array.isArray(json.schools) ? json.schools.length : 0,
+        districtsCount: Array.isArray(json.districts) ? json.districts.length : 0,
+        gradesCount: Array.isArray(json.grades) ? json.grades.length : 0,
+        sampleDistricts: (json.districts || []).slice(0, 8),
+        sampleGrades: (json.grades || []).slice(0, 8),
+      });
+      if ((!json.districts || json.districts.length === 0) && (!allSchools || allSchools.length === 0)) {
+        console.error('Meta is empty from /api/meta');
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">No data. Please check the connected Google Sheet.</div>';
+      }
     } catch (e) {
       console.error('Failed to fetch /api/meta', e);
+      // Ensure placeholders still render even if meta fails
       if (els.district) setOptions(els.district, [], 'All Districts');
       if (els.grade) setOptions(els.grade, [], 'All Grades');
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">No data. Unable to load metadata.</div>';
@@ -104,6 +121,7 @@
     const sorted = Array.from(new Set((schools || []).map(s => String(s).trim()).filter(Boolean)))
       .sort((a, b) => a.localeCompare(b));
     setDatalistOptions(els.schoolList, sorted);
+    // Clear the current school input when district changes
     els.schoolInput.value = '';
   }
 
@@ -112,6 +130,13 @@
       .replace(/&/g,'&amp;').replace(/</g,'&lt;')
       .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
   }
+
+  function splitBooks(raw) {
+    return String(raw || '')
+      .split(/[\n;]+/)
+      .map(s => s.trim())
+      .filter(Boolean);
+    }
 
   function renderResultCard(model) {
     const { district, school, grade, curriculum, module_number, module_title, dateLabel, essential_question, text_genres, books } = model;
@@ -129,6 +154,10 @@
       const titleHtml = link ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(title) + '</a>') : escapeHTML(title);
       return '<li class="book-item"><div class="book-thumb">' + img + fallback + '</div><div class="book-title">' + titleHtml + '</div></li>';
     }).join('');
+    // Recommended Text section removed
+
+    const soraNote = '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
+
     return (
       '<div class="card section">' +
         '<div class="grid-2" style="align-items:start;">' +
@@ -143,6 +172,7 @@
             '<p><b>Curriculum:</b> ' + escapeHTML(curriculum) + '</p>' +
           '</div>' +
         '</div>' +
+
         '<div class="subcard bg-blue section">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
             '<h3 style="margin:0;">Module Information</h3>' +
@@ -155,9 +185,13 @@
           '<p><b>Theme:</b> ' + escapeHTML(module_title || '—') + '</p>' +
           '<p><b>Date Range:</b> ' + escapeHTML(dateLabel || '—') + '</p>' +
         '</div>' +
+
         (eqParagraph ? ('<div class="subcard bg-green section"><h3>Essential Questions</h3>' + eqParagraph + '</div>') : '') +
+
         (genrePills ? ('<div class="subcard bg-yellow section"><h3>Text Genres</h3><div id="genres">' + genrePills + '</div></div>') : '') +
-        ('<div class="subcard bg-purple section"><h3>Reading List</h3>' + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">Not Available</div>') + '</div>') +
+
+        ('<div class="subcard bg-purple section"><h3>Reading List</h3>' + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">Not Available</div>') + soraNote + '</div>') +
+
         '<div class="section" style="font-size:12px;color:#475569;">Data Source: <a href="https://sites.google.com/schools.nyc.gov/nycpslc/resources-for-core-instruction?utm_source" target="_blank" rel="noopener">NYC DOE Pacing Guides</a></div>' +
       '</div>'
     );
@@ -170,12 +204,29 @@
       return;
     }
     const row = items[0];
+    console.log('[Search] Raw row sample', {
+      books_json: row && row.books_json,
+      text_genres: row && row.text_genres,
+    });
+    if (row && typeof row.books_source !== 'undefined') {
+      try {
+        const bj = row.books_json;
+        let tmpBooks = [];
+        if (Array.isArray(bj)) tmpBooks = bj;
+        else if (typeof bj === 'string' && bj.trim()) {
+          try { const parsed = JSON.parse(bj); tmpBooks = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []); } catch (e) {}
+        }
+        console.log('[Search] books_source', row.books_source, 'books_len', Array.isArray(tmpBooks) ? tmpBooks.length : 0);
+      } catch (e) {}
+    }
+    // Keep current selection context
     state.lastContext = {
       district: row.district,
       school: row.school,
       grade: row.grade,
       curriculum: row.curriculum,
     };
+    // Details from matched row
     const eqRaw = String(row.essential_question || row.essentialQuestion || '')
       .replace(/\s*[\r\n]+/g, ' ')
       .replace(/\s{2,}/g, ' ')
@@ -183,12 +234,14 @@
     const genres = Array.isArray(row.genres) ? row.genres : String(row.text_genres || row.textGenres || '')
       .split(/[\n]+/).map(s => s.trim()).filter(Boolean);
     let books = [];
+    // Prefer new 'books' array from API; fallback to books_json for compatibility
     if (Array.isArray(row.books)) {
       books = row.books;
     } else {
       const bj = row.books_json;
-      if (Array.isArray(bj)) books = bj;
-      else if (typeof bj === 'string' && bj.trim()) {
+      if (Array.isArray(bj)) {
+        books = bj;
+      } else if (typeof bj === 'string' && bj.trim()) {
         try {
           const parsed = JSON.parse(bj);
           books = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
@@ -197,7 +250,11 @@
         books = [];
       }
     }
+    console.log('[Debug] Essential Questions raw:', eqRaw);
+    console.log('[Search] Parsed books', { books_len: books.length, sample: books.slice(0, 3) });
     state.lastDetails = { eqRaw, genres, books };
+
+    // Load modules and set active index
     const params = new URLSearchParams({ curriculum: String(row.curriculum || ''), grade: String(row.grade || '') });
     fetch('/api/modules?' + params.toString(), { cache: 'no-cache' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('modules fetch failed')))
@@ -205,12 +262,26 @@
         state.modules = Array.isArray(json.modules) ? json.modules : [];
         const currentNum = Number(row.module_number || (row.module ? String(row.module).replace(/^[^0-9]*/, '') : '')) || 0;
         state.activeIndex = Math.max(0, state.modules.findIndex(m => Number(m.module_number) === currentNum));
+        console.log('[Search] Rendering result', {
+          district: state.lastContext.district,
+          school: state.lastContext.school,
+          grade: state.lastContext.grade,
+          curriculum: state.lastContext.curriculum,
+          module_number: state.modules[state.activeIndex] ? state.modules[state.activeIndex].module_number : ''
+        });
         renderResultFromState();
         updateNavButtons();
       })
-      .catch(() => {
+      .catch(err => {
+        console.error('Failed to load modules', err);
         state.modules = [];
         state.activeIndex = 0;
+        console.log('[Search] Rendering result (no modules)', {
+          district: state.lastContext.district,
+          school: state.lastContext.school,
+          grade: state.lastContext.grade,
+          curriculum: state.lastContext.curriculum
+        });
         renderResultFromState();
       });
   }
@@ -259,20 +330,25 @@
 
     const url = '/api/search' + (params.toString() ? ('?' + params.toString()) : '');
     try {
+      console.log('[Search] Request start', url);
       if (els.search) { els.search.disabled = true; els.search.textContent = 'Searching…'; }
       const res = await fetch(url, { cache: 'no-cache' });
       if (!res.ok) throw new Error('Failed to search');
       const json = await res.json();
+      console.log('[Search] API response', json);
       renderResults(Array.isArray(json.results) ? json.results : []);
     } catch (e) {
+      console.error('Failed to fetch /api/search', e);
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Unable to load search results. Please try again.</div>';
     } finally {
       if (els.search) { els.search.disabled = false; els.search.textContent = 'Find Curriculum'; }
+      console.log('[Search] Request end');
     }
   }
 
   function bindEvents() {
     const runSearch = () => {
+      console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
       const schoolVal = String(els.schoolInput.value || '').trim();
       if (!districtVal || !schoolVal) {
@@ -301,6 +377,7 @@
   }
 
   (async function boot() {
+    // Initialize placeholders so dropdowns are visible immediately
     if (els.district) setOptions(els.district, [], 'All Districts');
     if (els.grade) setOptions(els.grade, [], 'All Grades');
     setDefaultDate();
