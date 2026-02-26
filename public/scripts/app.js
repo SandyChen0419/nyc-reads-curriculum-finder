@@ -19,6 +19,7 @@
     meta: null,
     schoolsByDistrict: {},
     gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
+    gradesBySchoolName: {}, // key: exact school name -> ['PK','K','1'...'12']
     modules: [],
     activeIndex: 0,
     lastContext: null,
@@ -80,6 +81,21 @@
         console.warn('[Meta] No global grades from API; using default PK–12');
       }
 
+      // Prefer gradesBySchool from /api/meta if available (keyed by school name)
+      state.gradesBySchoolName = {};
+      try {
+        const gbs = json && json.gradesBySchool;
+        if (gbs && typeof gbs === 'object') {
+          for (const [name, arr] of Object.entries(gbs)) {
+            const key = String(name || '').trim();
+            if (!key) continue;
+            state.gradesBySchoolName[key] = sortGradeTokens(Array.isArray(arr) ? arr : []);
+          }
+        }
+      } catch (e) {
+        console.warn('[Meta] Failed to parse gradesBySchool from /api/meta', e);
+      }
+
       // Build schoolsByDistrict from flat schools array if provided
       const byDistrict = {};
       if (Array.isArray(json.schools)) {
@@ -97,7 +113,7 @@
       }
       state.schoolsByDistrict = byDistrict;
 
-      // Fetch grades per school mapping
+      // Fetch grades per school mapping (legacy endpoint); keep as fallback only
       try {
         const res2 = await fetch('/api/school-grades', { cache: 'no-cache' });
         if (res2.ok) {
@@ -110,6 +126,7 @@
               map[k] = graded;
             }
           }
+          // Only use this map as a fallback; keep gradesBySchoolName authoritative
           state.gradesBySchool = map;
         } else {
           console.warn('[Meta] /api/school-grades returned', res2.status);
@@ -175,10 +192,16 @@
 
   function recomputeGradeOptionsForSelection() {
     const districtVal = normKeyPart(els.district.value || '');
-    const schoolVal = normKeyPart(els.schoolInput.value || '');
+    const schoolRaw = String(els.schoolInput.value || '').trim();
+    const schoolVal = normKeyPart(schoolRaw);
     const key = schoolKey(districtVal, schoolVal);
-    const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
-      ? state.gradesBySchool[key]
+    // Prefer mapping by school name from /api/meta
+    const byName = (schoolRaw && state.gradesBySchoolName && state.gradesBySchoolName[schoolRaw])
+      ? state.gradesBySchoolName[schoolRaw] : null;
+    const byKey = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
+      ? state.gradesBySchool[key] : null;
+    const allowed = (byName && byName.length) ? byName
+      : (byKey && byKey.length) ? byKey
       : ((state.meta && state.meta.grades && state.meta.grades.length) ? state.meta.grades : defaultGradeTokens());
     const allowedSorted = sortGradeTokens(allowed);
     setOptions(els.grade, allowedSorted, 'All Grades');
@@ -414,16 +437,19 @@
     const runSearch = () => {
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
-      const schoolVal = String(els.schoolInput.value || '').trim();
+      const schoolValRaw = String(els.schoolInput.value || '').trim();
       // Validate grade against school
-      const key = schoolKey(districtVal, schoolVal);
-      const allowed = state.gradesBySchool && state.gradesBySchool[key];
+      const key = schoolKey(normKeyPart(districtVal), normKeyPart(schoolValRaw));
+      const allowedByName = state.gradesBySchoolName && state.gradesBySchoolName[schoolValRaw];
+      const allowedByKey = state.gradesBySchool && state.gradesBySchool[key];
+      const allowed = (Array.isArray(allowedByName) && allowedByName.length) ? allowedByName : allowedByKey;
       const curGrade = String(els.grade.value || '').trim();
-      if (Array.isArray(allowed) && allowed.length && curGrade && allowed.indexOf(curGrade) === -1) {
-        console.warn('[Search] Invalid grade for school; resetting to All');
-        els.grade.value = '';
+      // If both a school and a grade are selected, enforce validity
+      if (schoolValRaw && curGrade && Array.isArray(allowed) && allowed.length && allowed.indexOf(curGrade) === -1) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Selected grade is not available for this school.</div>';
+        return;
       }
-      if (!districtVal || !schoolVal) {
+      if (!districtVal || !schoolValRaw) {
         if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a district and school to search.</div>';
         return;
       }
