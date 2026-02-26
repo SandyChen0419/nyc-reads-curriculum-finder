@@ -72,7 +72,7 @@ def api_dispatch_rewrite():
     """
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
-    orig = (request.args.get('__path') or '').strip() or request.path
+    orig = (request.args.get('__path') or request.args.get('path') or '').strip() or request.path
     # Normalize and strip query part if any leaked
     orig = orig.split('?', 1)[0]
     # Expect formats like /api/meta, /api/modules, /api/search
