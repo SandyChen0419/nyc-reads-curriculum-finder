@@ -1,7 +1,7 @@
 import json
 from flask import Flask, request, make_response, jsonify
 
-from api._shared import build_meta, build_modules, build_search, build_school_grades, build_meta_debug
+from api._shared import build_meta, build_modules, build_search, build_school_grades, build_meta_debug, build_grades_lookup_norm, _norm_school_name
 
 # Vercel: export a Flask WSGI app at module scope
 app = Flask(__name__)
@@ -68,6 +68,18 @@ def api_search():
         'school': (request.args.get('school') or '').strip(),
         'grade': (request.args.get('grade') or '').strip(),
     }
+    # Strict grade validation based on School Directories mapping
+    try:
+        school_name = params['school']
+        grade_sel = params['grade']
+        if school_name and grade_sel:
+            lookup = build_grades_lookup_norm()
+            allowed = lookup.get(_norm_school_name(school_name), [])
+            if allowed and grade_sel not in allowed:
+                return json_utf8({'results': [], 'error': None, 'note': 'information_not_available'})
+    except Exception:
+        # On any error, fall through to existing behavior
+        pass
     data = build_search(params)
     return json_utf8(data)
 
