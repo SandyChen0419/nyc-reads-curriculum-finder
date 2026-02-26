@@ -32,7 +32,7 @@ GID_FOR_PACING = os.environ.get('GID_FOR_PACING', os.environ.get('SHEET_GID_PACI
 GID_FOR_SCHOOLS = os.environ.get('GID_FOR_SCHOOLS', os.environ.get('SHEET_GID_SCHOOLS', '')).strip()
 
 DEFAULT_PACING_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=0&single=true'
-DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml'
+DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml?gid=1673123403&single=true'
 
 
 def json_response(data: dict, status: int = 200, extra_headers: dict | None = None):
@@ -311,6 +311,9 @@ def _fetch_schools_csv():
     # 2) Explicit CSV with gid
     if SCHOOLS_CSV and 'gid=' in SCHOOLS_CSV:
         candidates.append(SCHOOLS_CSV)
+    # 2b) Published School Directory URL -> force convert to CSV (ensures correct gid 1673123403)
+    if DEFAULT_SCHOOLS_PUBHTML:
+        candidates.append(_pubhtml_to_csv(DEFAULT_SCHOOLS_PUBHTML))
     # 3) Build from tab name as fallback
     for u in _build_csv_urls(TAB_SCHOOLS, GID_FOR_SCHOOLS):
         candidates.append(u)
@@ -496,6 +499,9 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         t = tok.strip().upper()
         if not t:
             return
+        # Map "OK" (often used to denote K) to "K"
+        if t == 'OK':
+            t = 'K'
         if t in ('PRE-K', 'PREK', 'P K', 'PK'):
             t = 'PK'
         if t in ('KDG', 'KINDERGARTEN'):
