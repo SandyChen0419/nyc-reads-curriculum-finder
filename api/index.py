@@ -1,7 +1,7 @@
 import json
 from flask import Flask, request, make_response, jsonify
 
-from api._shared import build_meta, build_modules, build_search, build_school_grades
+from api._shared import build_meta, build_modules, build_search, build_school_grades, build_meta_debug
 
 # Vercel: export a Flask WSGI app at module scope
 app = Flask(__name__)
@@ -71,6 +71,13 @@ def api_school_grades():
         return json_utf8({'ok': True}, 204)
     data = build_school_grades()
     return json_utf8(data)
+
+@app.route('/meta_debug', methods=['GET', 'OPTIONS'])
+@app.route('/api/meta_debug', methods=['GET', 'OPTIONS'])
+def api_meta_debug():
+    if request.method == 'OPTIONS':
+        return json_utf8({'ok': True}, 204)
+    return json_utf8(build_meta_debug())
 
 @app.route('/api/index.py', methods=['GET', 'OPTIONS'])
 @app.route('/api/index', methods=['GET', 'OPTIONS'])
