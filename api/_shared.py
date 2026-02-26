@@ -28,7 +28,7 @@ GID_FOR_PACING = os.environ.get('GID_FOR_PACING', os.environ.get('SHEET_GID_PACI
 GID_FOR_SCHOOLS = os.environ.get('GID_FOR_SCHOOLS', os.environ.get('SHEET_GID_SCHOOLS', '')).strip()
 
 DEFAULT_PACING_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=0&single=true'
-DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=136947076&single=true'
+DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml'
 
 
 def json_response(data: dict, status: int = 200, extra_headers: dict | None = None):
@@ -297,14 +297,7 @@ def _fetch_csv_from_url(url: str, context: str = ''):
 
 def _fetch_schools_csv():
     global LAST_SCHOOLS_HEADERS_ORDER
-    if SCHOOLS_CSV:
-        rows = _fetch_csv_from_url(SCHOOLS_CSV)
-        try:
-            if rows:
-                LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
-        except Exception:
-            pass
-        return rows
+    # Prefer direct export using SHEET_ID + gid when present
     if SHEET_ID and GID_FOR_SCHOOLS:
         url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_SCHOOLS}"
         rows = _fetch_csv_from_url(url)
@@ -314,6 +307,16 @@ def _fetch_schools_csv():
         except Exception:
             pass
         return rows
+    # If SCHOOLS_CSV is a direct gid export, use it
+    if SCHOOLS_CSV and 'gid=' in SCHOOLS_CSV:
+        rows = _fetch_csv_from_url(SCHOOLS_CSV)
+        try:
+            if rows:
+                LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
+        except Exception:
+            pass
+        return rows
+    # Otherwise fetch by tab name to ensure correct sheet
     rows = _fetch_sheet(TAB_SCHOOLS, GID_FOR_SCHOOLS)
     try:
         if rows:
