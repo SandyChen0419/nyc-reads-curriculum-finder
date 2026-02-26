@@ -454,11 +454,14 @@
       const key = schoolKey(normKeyPart(districtVal), normKeyPart(schoolValRaw));
       const allowedByName = state.gradesBySchoolName && state.gradesBySchoolName[schoolValRaw];
       const allowedByKey = state.gradesBySchool && state.gradesBySchool[key];
-      const allowed = (Array.isArray(allowedByName) && allowedByName.length) ? allowedByName : allowedByKey;
+      const allowedByNormName = state.gradesBySchoolNorm && state.gradesBySchoolNorm[normKeyPart(schoolValRaw)];
+      const allowed = (Array.isArray(allowedByName) && allowedByName.length) ? allowedByName
+        : (Array.isArray(allowedByNormName) && allowedByNormName.length) ? allowedByNormName
+        : allowedByKey;
       const curGrade = String(els.grade.value || '').trim();
       // If both a school and a grade are selected, enforce validity
       if (schoolValRaw && curGrade && Array.isArray(allowed) && allowed.length && allowed.indexOf(curGrade) === -1) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Selected grade is not available for this school.</div>';
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">No data. Information not available for the selected school and grade.</div>';
         return;
       }
       if (!districtVal || !schoolValRaw) {
