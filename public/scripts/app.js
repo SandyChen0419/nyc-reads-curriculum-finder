@@ -428,9 +428,11 @@
     };
 
     els.district.addEventListener('change', () => { onDistrictChange(); });
+    // For <input list="..."> (datalist), 'input' fires on selection; 'change' may not always fire.
+    els.schoolInput.addEventListener('input', () => { recomputeGradeOptionsForSelection(); });
     els.schoolInput.addEventListener('change', () => { recomputeGradeOptionsForSelection(); });
     els.schoolInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
-    els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); });
+    els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); recomputeGradeOptionsForSelection(); });
     els.grade.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.date.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.clear.addEventListener('click', () => {
