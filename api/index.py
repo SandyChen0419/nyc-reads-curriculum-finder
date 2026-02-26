@@ -1,7 +1,7 @@
 import json
 from flask import Flask, request, make_response, jsonify
 
-from api._shared import build_meta, build_modules, build_search
+from api._shared import build_meta, build_modules, build_search, build_school_grades
 
 # Vercel: export a Flask WSGI app at module scope
 app = Flask(__name__)
@@ -64,6 +64,14 @@ def api_search():
     data = build_search(params)
     return json_utf8(data)
 
+@app.route('/school-grades', methods=['GET', 'OPTIONS'])
+@app.route('/api/school-grades', methods=['GET', 'OPTIONS'])
+def api_school_grades():
+    if request.method == 'OPTIONS':
+        return json_utf8({'ok': True}, 204)
+    data = build_school_grades()
+    return json_utf8(data)
+
 @app.route('/api/index.py', methods=['GET', 'OPTIONS'])
 @app.route('/api/index', methods=['GET', 'OPTIONS'])
 def api_dispatch_rewrite():
@@ -72,7 +80,7 @@ def api_dispatch_rewrite():
     """
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
-    orig = (request.args.get('__path') or request.args.get('path') or '').strip() or request.path
+    orig = (request.args.get('__path') or '').strip() or request.path
     # Normalize and strip query part if any leaked
     orig = orig.split('?', 1)[0]
     # Expect formats like /api/meta, /api/modules, /api/search
