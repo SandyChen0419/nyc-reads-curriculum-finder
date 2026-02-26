@@ -30,12 +30,19 @@ def api_health():
 def api_meta():
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
+    dbg = False
     try:
-        if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
-            return json_utf8({'ok': True, 'route': 'meta'})
+        dbg = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
     except Exception:
-        pass
+        dbg = False
     data = build_meta()
+    if dbg:
+        # Attach expanded debug without short-circuiting
+        try:
+            extra = build_meta_debug()
+            data['_debug_summary'] = extra
+        except Exception as e:
+            data['_debug_summary'] = {'error': str(e)}
     return json_utf8(data)
 
 
