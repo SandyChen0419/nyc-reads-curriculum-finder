@@ -464,6 +464,51 @@ def _meta_from_pacing(rows):
         'curricula': sorted(curricula),
     }
 
+def _normalize_grade_tokens(cell: str) -> list[str]:
+    """
+    Normalize a grade cell (e.g., 'K-5', '6–8', 'K,1,2,3', 'PK') into tokens like ['PK','K','1',...,'12'].
+    """
+    if not cell:
+        return []
+    txt = str(cell).strip()
+    if not txt:
+        return []
+    txt = txt.replace('–', '-').replace('—', '-')
+    out: list[str] = []
+    def add(tok: str):
+        t = tok.strip().upper()
+        if not t:
+            return
+        if t in ('PRE-K', 'PREK', 'P K', 'PK'):
+            t = 'PK'
+        if t in ('KDG', 'KINDERGARTEN'):
+            t = 'K'
+        if t == 'PK' or t == 'K' or t.isdigit():
+            if t not in out:
+                out.append(t)
+    # Split by common separators
+    for part in re.split(r"[,;/]+", txt):
+        s = part.strip()
+        if not s:
+            continue
+        if '-' in s:
+            a, b = [x.strip().upper() for x in s.split('-', 1)]
+            def to_num(x: str) -> int:
+                return 0 if x == 'PK' else (1 if x == 'K' else (int(x) if x.isdigit() else -1))
+            def from_num(n: int) -> str:
+                return 'PK' if n == 0 else ('K' if n == 1 else str(n))
+            sa, sb = to_num(a), to_num(b)
+            if sa >= 0 and sb >= 0:
+                if sa <= sb:
+                    rng = range(sa, sb + 1)
+                else:
+                    rng = range(sb, sa + 1)
+                for n in rng:
+                    add(from_num(n))
+                continue
+        add(s)
+    return out
+
 
 def build_meta():
     try:
@@ -678,3 +723,49 @@ def build_search(params: dict):
         results.append(item)
     return {'results': results}
 
+
+def build_school_grades():
+    """
+    Returns mapping of grades per school using the School Directories tab.
+    Output:
+      {
+        "items": [
+          {"district": "3", "school": "Flushing High School", "grades": ["9","10","11","12"]},
+          ...
+        ]
+      }
+    """
+    try:
+        schools_rows = _fetch_schools_csv()
+    except Exception:
+        schools_rows = []
+    district_candidates = {
+        _normalize_header('District #'), 'district', 'district_number', 'district_no',
+        'district_id', 'districtid'
+    }
+    school_candidates = {
+        _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
+        'school_name', 'school'
+    }
+    items = []
+    for r in schools_rows:
+        district = ''
+        for key in district_candidates:
+            val = r.get(key)
+            if val:
+                district = str(val).strip()
+                break
+        school = ''
+        for key in school_candidates:
+            val = r.get(key)
+            if val:
+                school = str(val).strip()
+                break
+        grade_cell = (
+            r.get('grade') or r.get('grades') or r.get('grades_served')
+            or r.get('grade_level') or r.get('grade_levels') or ''
+        )
+        grades = _normalize_grade_tokens(str(grade_cell))
+        if district and school:
+            items.append({'district': district, 'school': school, 'grades': grades})
+    return {'items': items}
