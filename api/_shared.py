@@ -27,8 +27,9 @@ SHEET_ID = os.environ.get('SHEET_ID', '12xrUodG0RyTpAlfo6_CO7phNY2LdzjH9mqieJQIV
 GID_FOR_PACING = os.environ.get('GID_FOR_PACING', os.environ.get('SHEET_GID_PACING', '')).strip()
 GID_FOR_SCHOOLS = os.environ.get('GID_FOR_SCHOOLS', os.environ.get('SHEET_GID_SCHOOLS', '')).strip()
 
-DEFAULT_PACING_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml?gid=1707233296&single=true'
-DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml?gid=1673123403&single=true'
+DEFAULT_PACING_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=0&single=true'
+DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml'
+
 
 def json_response(data: dict, status: int = 200, extra_headers: dict | None = None):
     body = json.dumps(data, ensure_ascii=False)
@@ -66,6 +67,9 @@ SCHOOLS_CSV = os.environ.get('SCHOOLS_CSV', _pubhtml_to_csv(DEFAULT_SCHOOLS_PUBH
 SHEET_BASE_PUB = os.environ.get('SHEET_BASE_PUB', f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/pub').strip()
 TAB_PACING = os.environ.get('TAB_PACING', 'Pacing Guide')
 TAB_SCHOOLS = os.environ.get('TAB_SCHOOLS', 'School Directories')
+
+def _norm_key_part(s: str) -> str:
+    return str(s or '').strip().lower()
 
 
 def _normalize_header(h):
@@ -525,6 +529,7 @@ def build_meta():
     schools_list = []
     curricula_set = set()
     grades_set = set()
+    grades_by_school: dict[str, list[str]] = {}
     district_candidates = {
         _normalize_header('District #'), 'district', 'district_number', 'district_no',
         'district_id', 'districtid'
@@ -553,12 +558,23 @@ def build_meta():
             if val:
                 curriculum = str(val).strip()
                 break
+        # Column E (grades served) normalized into tokens
+        grade_cell = (
+            r.get('grade') or r.get('grades') or r.get('grades_served')
+            or r.get('grade_level') or r.get('grade_levels') or ''
+        )
+        school_grade_tokens = _normalize_grade_tokens(str(grade_cell))
         if district:
             districts_set.add(district)
         if district and school:
-            schools_list.append({'district': district, 'school': school})
+            schools_list.append({'district': district, 'school': school, 'grades': school_grade_tokens})
+            # Build lookup key (district|school), normalized like the UI
+            key = f"{_norm_key_part(district)}|{_norm_key_part(school)}"
+            grades_by_school[key] = school_grade_tokens
         if curriculum:
             curricula_set.add(curriculum)
+        for gt in school_grade_tokens:
+            grades_set.add(gt)
     for r in pacing_rows:
         grade = r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or ''
         curriculum = r.get(_normalize_header('Curriculum')) or r.get('curriculum') or ''
@@ -598,11 +614,20 @@ def build_meta():
         for g in derived.get('grades', []):
             grades_set.add(g)
         grades_sorted = sorted(grades_set, key=lambda g: (g != 'K', int(g) if str(g).isdigit() else 0))
+    # Build schoolsByDistrict map (friendly for clients)
+    schools_by_district_map: dict[str, list[str]] = {}
+    for item in schools_list:
+        d = item['district']; s = item['school']
+        schools_by_district_map.setdefault(d, []).append(s)
+    for d in list(schools_by_district_map.keys()):
+        schools_by_district_map[d] = sorted(list(set(schools_by_district_map[d])))
     return {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
         'grades': grades_sorted,
         'curricula': sorted(curricula_set),
+        'schoolsByDistrict': schools_by_district_map,
+        'gradesBySchool': grades_by_school,
     }
 
 
