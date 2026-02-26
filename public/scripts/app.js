@@ -42,6 +42,12 @@
     return Array.from(new Set((tokens || []).map(String))).sort((a, b) => order(a) - order(b));
   }
 
+  function defaultGradeTokens() {
+    const out = ['PK', 'K'];
+    for (let i = 1; i <= 12; i++) out.push(String(i));
+    return out;
+  }
+
   function schoolKey(district, school) {
     return String(district || '').trim() + '|' + String(school || '').trim();
   }
@@ -64,6 +70,12 @@
       if (!res.ok) throw new Error('Failed to load meta');
       const json = await res.json();
       state.meta = json || {};
+
+      // Ensure we always have a global grade list as fallback
+      if (!state.meta.grades || !Array.isArray(state.meta.grades) || state.meta.grades.length === 0) {
+        state.meta.grades = defaultGradeTokens();
+        console.warn('[Meta] No global grades from API; using default PK–12');
+      }
 
       // Build schoolsByDistrict from flat schools array if provided
       const byDistrict = {};
@@ -120,7 +132,7 @@
           .map(n => String(n));
       }
       setOptions(els.district, districts, 'All Districts');
-      setOptions(els.grade, json.grades || [], 'All Grades');
+      setOptions(els.grade, state.meta.grades || defaultGradeTokens(), 'All Grades');
       const allSchools = Object.values(byDistrict).flat().sort((a, b) => a.localeCompare(b));
       setDatalistOptions(els.schoolList, allSchools);
 
@@ -155,16 +167,16 @@
     // Clear the current school input when district changes
     els.schoolInput.value = '';
     // Reset grades to global when district changed and school cleared
-    if (state.meta) setOptions(els.grade, state.meta.grades || [], 'All Grades');
+    if (state.meta) setOptions(els.grade, state.meta.grades || defaultGradeTokens(), 'All Grades');
   }
 
   function recomputeGradeOptionsForSelection() {
     const districtVal = String(els.district.value || '').trim();
     const schoolVal = String(els.schoolInput.value || '').trim();
     const key = schoolKey(districtVal, schoolVal);
-    const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key])
+    const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
       ? state.gradesBySchool[key]
-      : (state.meta && state.meta.grades) ? state.meta.grades : [];
+      : ((state.meta && state.meta.grades && state.meta.grades.length) ? state.meta.grades : defaultGradeTokens());
     const allowedSorted = sortGradeTokens(allowed);
     setOptions(els.grade, allowedSorted, 'All Grades');
     // If current selection is not allowed, reset to All
