@@ -18,6 +18,7 @@
   const state = {
     meta: null,
     schoolsByDistrict: {},
+    gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
     modules: [],
     activeIndex: 0,
     lastContext: null,
@@ -34,6 +35,15 @@
   function setDatalistOptions(listEl, values) {
     const opts = values.map(v => '<option value="' + String(v).replaceAll('"', '&quot;') + '"></option>').join('');
     listEl.innerHTML = opts;
+  }
+
+  function sortGradeTokens(tokens) {
+    const order = t => (t === 'PK' ? 0 : (t === 'K' ? 1 : (10 + Number(t))));
+    return Array.from(new Set((tokens || []).map(String))).sort((a, b) => order(a) - order(b));
+  }
+
+  function schoolKey(district, school) {
+    return String(district || '').trim() + '|' + String(school || '').trim();
   }
 
   function setDefaultDate() {
@@ -71,6 +81,27 @@
         });
       }
       state.schoolsByDistrict = byDistrict;
+
+      // Fetch grades per school mapping
+      try {
+        const res2 = await fetch('/api/school-grades', { cache: 'no-cache' });
+        if (res2.ok) {
+          const j2 = await res2.json();
+          const map = {};
+          if (j2 && Array.isArray(j2.items)) {
+            for (const it of j2.items) {
+              const k = schoolKey(it.district, it.school);
+              const graded = Array.isArray(it.grades) ? sortGradeTokens(it.grades) : [];
+              map[k] = graded;
+            }
+          }
+          state.gradesBySchool = map;
+        } else {
+          console.warn('[Meta] /api/school-grades returned', res2.status);
+        }
+      } catch (e) {
+        console.warn('[Meta] Failed to fetch /api/school-grades', e);
+      }
 
       // Sort districts numerically, render as strings; fallback from schoolsByDistrict keys
       const districtsFromMeta = Array.isArray(json.districts) ? json.districts : [];
@@ -123,6 +154,24 @@
     setDatalistOptions(els.schoolList, sorted);
     // Clear the current school input when district changes
     els.schoolInput.value = '';
+    // Reset grades to global when district changed and school cleared
+    if (state.meta) setOptions(els.grade, state.meta.grades || [], 'All Grades');
+  }
+
+  function recomputeGradeOptionsForSelection() {
+    const districtVal = String(els.district.value || '').trim();
+    const schoolVal = String(els.schoolInput.value || '').trim();
+    const key = schoolKey(districtVal, schoolVal);
+    const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key])
+      ? state.gradesBySchool[key]
+      : (state.meta && state.meta.grades) ? state.meta.grades : [];
+    const allowedSorted = sortGradeTokens(allowed);
+    setOptions(els.grade, allowedSorted, 'All Grades');
+    // If current selection is not allowed, reset to All
+    const cur = String(els.grade.value || '').trim();
+    if (cur && allowedSorted.indexOf(cur) === -1) {
+      els.grade.value = '';
+    }
   }
 
   function escapeHTML(s){
@@ -145,10 +194,6 @@
     const bookList = (books || []).map(b => {
       const title = b && b.title ? String(b.title) : '';
       const link = b && b.url ? String(b.url) : '';
-      console.log('[UI] renderResultCard', {
-  district, school, grade,
-  booksLen: Array.isArray(books) ? books.length : 0
-});
       const cover = b && (b.coverImageUrl || b.coverimageurl) ? String(b.coverImageUrl || b.coverimageurl) : '';
       const imgTag = cover ? ('<img src="' + cover + '" alt="' + escapeHTML(title || 'Book cover') + '" onerror="this.onerror=null; this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" />') : '';
       const img = link && imgTag
@@ -160,10 +205,8 @@
     }).join('');
     // Recommended Text section removed
 
-const soraNote = '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
-console.log('[UI] adding Sora note', { hasSoraNote: true });
-    return (
-    
+    const soraNote = '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
+
     return (
       '<div class="card section">' +
         '<div class="grid-2" style="align-items:start;">' +
@@ -196,7 +239,7 @@ console.log('[UI] adding Sora note', { hasSoraNote: true });
 
         (genrePills ? ('<div class="subcard bg-yellow section"><h3>Text Genres</h3><div id="genres">' + genrePills + '</div></div>') : '') +
 
-        ('<div class="subcard bg-purple section"><h3>Reading List</h3>' + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">Not Available</div>') + '</div>') +
+        ('<div class="subcard bg-purple section"><h3>Reading List</h3>' + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">Not Available</div>') + soraNote + '</div>') +
 
         '<div class="section" style="font-size:12px;color:#475569;">Data Source: <a href="https://sites.google.com/schools.nyc.gov/nycpslc/resources-for-core-instruction?utm_source" target="_blank" rel="noopener">NYC DOE Pacing Guides</a></div>' +
       '</div>'
@@ -315,8 +358,6 @@ console.log('[UI] adding Sora note', { hasSoraNote: true });
     if (prevBtn && nextBtn) {
       prevBtn.onclick = () => { if (state.activeIndex > 0) { state.activeIndex--; renderResultFromState(); updateNavButtons(); } };
       nextBtn.onclick = () => { if (state.activeIndex < state.modules.length - 1) { state.activeIndex++; renderResultFromState(); updateNavButtons(); } };
-    const hasNote = !!document.querySelector('.sora-note');
-console.log('[UI] results injected; sora-note present?', hasNote);
     }
   }
 
@@ -359,6 +400,14 @@ console.log('[UI] results injected; sora-note present?', hasNote);
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
       const schoolVal = String(els.schoolInput.value || '').trim();
+      // Validate grade against school
+      const key = schoolKey(districtVal, schoolVal);
+      const allowed = state.gradesBySchool && state.gradesBySchool[key];
+      const curGrade = String(els.grade.value || '').trim();
+      if (Array.isArray(allowed) && allowed.length && curGrade && allowed.indexOf(curGrade) === -1) {
+        console.warn('[Search] Invalid grade for school; resetting to All');
+        els.grade.value = '';
+      }
       if (!districtVal || !schoolVal) {
         if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a district and school to search.</div>';
         return;
@@ -367,7 +416,7 @@ console.log('[UI] results injected; sora-note present?', hasNote);
     };
 
     els.district.addEventListener('change', () => { onDistrictChange(); });
-    els.schoolInput.addEventListener('change', () => { /* selection from datalist */ });
+    els.schoolInput.addEventListener('change', () => { recomputeGradeOptionsForSelection(); });
     els.schoolInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); });
     els.grade.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
