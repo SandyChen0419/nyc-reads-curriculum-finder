@@ -20,6 +20,7 @@
     schoolsByDistrict: {},
     gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
     gradesBySchoolName: {}, // key: exact school name -> ['PK','K','1'...'12']
+    gradesBySchoolNorm: {}, // key: normalized school name -> grades
     modules: [],
     activeIndex: 0,
     lastContext: null,
@@ -90,6 +91,14 @@
             const key = String(name || '').trim();
             if (!key) continue;
             state.gradesBySchoolName[key] = sortGradeTokens(Array.isArray(arr) ? arr : []);
+          }
+        }
+        const gbsn = json && json.gradesBySchoolNorm;
+        if (gbsn && typeof gbsn === 'object') {
+          for (const [nkey, arr] of Object.entries(gbsn)) {
+            const k2 = String(nkey || '').trim().toLowerCase();
+            if (!k2) continue;
+            state.gradesBySchoolNorm[k2] = sortGradeTokens(Array.isArray(arr) ? arr : []);
           }
         }
       } catch (e) {
@@ -198,9 +207,12 @@
     // Prefer mapping by school name from /api/meta
     const byName = (schoolRaw && state.gradesBySchoolName && state.gradesBySchoolName[schoolRaw])
       ? state.gradesBySchoolName[schoolRaw] : null;
+    const byNormName = (schoolVal && state.gradesBySchoolNorm && state.gradesBySchoolNorm[schoolVal])
+      ? state.gradesBySchoolNorm[schoolVal] : null;
     const byKey = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
       ? state.gradesBySchool[key] : null;
     const allowed = (byName && byName.length) ? byName
+      : (byNormName && byNormName.length) ? byNormName
       : (byKey && byKey.length) ? byKey
       : ((state.meta && state.meta.grades && state.meta.grades.length) ? state.meta.grades : defaultGradeTokens());
     const allowedSorted = sortGradeTokens(allowed);
