@@ -19,8 +19,6 @@
     meta: null,
     schoolsByDistrict: {},
     gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
-    gradesBySchoolName: {}, // key: exact school name -> ['PK','K','1'...'12']
-    gradesBySchoolNorm: {}, // key: normalized school name -> grades
     modules: [],
     activeIndex: 0,
     lastContext: null,
@@ -50,11 +48,8 @@
     return out;
   }
 
-  function normKeyPart(s) {
-    return String(s || '').trim().toLowerCase();
-  }
   function schoolKey(district, school) {
-    return normKeyPart(district) + '|' + normKeyPart(school);
+    return String(district || '').trim() + '|' + String(school || '').trim();
   }
 
   function setDefaultDate() {
@@ -82,29 +77,6 @@
         console.warn('[Meta] No global grades from API; using default PK–12');
       }
 
-      // Prefer gradesBySchool from /api/meta if available (keyed by school name)
-      state.gradesBySchoolName = {};
-      try {
-        const gbs = json && json.gradesBySchool;
-        if (gbs && typeof gbs === 'object') {
-          for (const [name, arr] of Object.entries(gbs)) {
-            const key = String(name || '').trim();
-            if (!key) continue;
-            state.gradesBySchoolName[key] = sortGradeTokens(Array.isArray(arr) ? arr : []);
-          }
-        }
-        const gbsn = json && json.gradesBySchoolNorm;
-        if (gbsn && typeof gbsn === 'object') {
-          for (const [nkey, arr] of Object.entries(gbsn)) {
-            const k2 = String(nkey || '').trim().toLowerCase();
-            if (!k2) continue;
-            state.gradesBySchoolNorm[k2] = sortGradeTokens(Array.isArray(arr) ? arr : []);
-          }
-        }
-      } catch (e) {
-        console.warn('[Meta] Failed to parse gradesBySchool from /api/meta', e);
-      }
-
       // Build schoolsByDistrict from flat schools array if provided
       const byDistrict = {};
       if (Array.isArray(json.schools)) {
@@ -122,7 +94,7 @@
       }
       state.schoolsByDistrict = byDistrict;
 
-      // Fetch grades per school mapping (legacy endpoint); keep as fallback only
+      // Fetch grades per school mapping
       try {
         const res2 = await fetch('/api/school-grades', { cache: 'no-cache' });
         if (res2.ok) {
@@ -135,7 +107,6 @@
               map[k] = graded;
             }
           }
-          // Only use this map as a fallback; keep gradesBySchoolName authoritative
           state.gradesBySchool = map;
         } else {
           console.warn('[Meta] /api/school-grades returned', res2.status);
@@ -200,20 +171,11 @@
   }
 
   function recomputeGradeOptionsForSelection() {
-    const districtVal = normKeyPart(els.district.value || '');
-    const schoolRaw = String(els.schoolInput.value || '').trim();
-    const schoolVal = normKeyPart(schoolRaw);
+    const districtVal = String(els.district.value || '').trim();
+    const schoolVal = String(els.schoolInput.value || '').trim();
     const key = schoolKey(districtVal, schoolVal);
-    // Prefer mapping by school name from /api/meta
-    const byName = (schoolRaw && state.gradesBySchoolName && state.gradesBySchoolName[schoolRaw])
-      ? state.gradesBySchoolName[schoolRaw] : null;
-    const byNormName = (schoolVal && state.gradesBySchoolNorm && state.gradesBySchoolNorm[schoolVal])
-      ? state.gradesBySchoolNorm[schoolVal] : null;
-    const byKey = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
-      ? state.gradesBySchool[key] : null;
-    const allowed = (byName && byName.length) ? byName
-      : (byNormName && byNormName.length) ? byNormName
-      : (byKey && byKey.length) ? byKey
+    const allowed = (districtVal && schoolVal && state.gradesBySchool && state.gradesBySchool[key] && state.gradesBySchool[key].length)
+      ? state.gradesBySchool[key]
       : ((state.meta && state.meta.grades && state.meta.grades.length) ? state.meta.grades : defaultGradeTokens());
     const allowedSorted = sortGradeTokens(allowed);
     setOptions(els.grade, allowedSorted, 'All Grades');
@@ -449,22 +411,44 @@
     const runSearch = () => {
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
-      const schoolValRaw = String(els.schoolInput.value || '').trim();
-      // Validate grade against school
-      const key = schoolKey(normKeyPart(districtVal), normKeyPart(schoolValRaw));
-      const allowedByName = state.gradesBySchoolName && state.gradesBySchoolName[schoolValRaw];
-      const allowedByKey = state.gradesBySchool && state.gradesBySchool[key];
-      const allowedByNormName = state.gradesBySchoolNorm && state.gradesBySchoolNorm[normKeyPart(schoolValRaw)];
-      const allowed = (Array.isArray(allowedByName) && allowedByName.length) ? allowedByName
-        : (Array.isArray(allowedByNormName) && allowedByNormName.length) ? allowedByNormName
-        : allowedByKey;
-      const curGrade = String(els.grade.value || '').trim();
-      // If both a school and a grade are selected, enforce validity
-      if (schoolValRaw && curGrade && Array.isArray(allowed) && allowed.length && allowed.indexOf(curGrade) === -1) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">No data. Information not available for the selected school and grade.</div>';
-        return;
+      const schoolVal = String(els.schoolInput.value || '').trim();
+      // Validation-only (do not change dropdowns): if a selected grade is NOT offered by selected school, show "Information not available." and do NOT search
+      const normalizeToken = (t) => {
+        const s = String(t || '').trim().toUpperCase();
+        if (!s) return '';
+        if (s === 'PRE-K' || s === 'PREK' || s === 'P K' || s === 'PK') return 'PK';
+        if (s === 'KDG' || s === 'KINDERGARTEN' || s === '0K' || s === 'OK' || s === 'K') return 'K';
+        return s;
+      };
+      const gradeValRaw = String(els.grade.value || '').trim();
+      const gradeVal = normalizeToken(gradeValRaw);
+      // Prefer meta.gradesBySchool (school name -> list), else fall back to our internal map (district|school)
+      let allowedRaw = [];
+      if (state.meta && state.meta.gradesBySchool && schoolVal && Array.isArray(state.meta.gradesBySchool[schoolVal])) {
+        allowedRaw = state.meta.gradesBySchool[schoolVal];
+      } else {
+        const key = schoolKey(districtVal, schoolVal);
+        if (state.gradesBySchool && (state.gradesBySchool[key] || state.gradesBySchool[schoolVal])) {
+          allowedRaw = state.gradesBySchool[key] || state.gradesBySchool[schoolVal] || [];
+        }
       }
-      if (!districtVal || !schoolValRaw) {
+      const allowedNormalized = Array.isArray(allowedRaw) ? allowedRaw.map(normalizeToken) : [];
+      const shouldBlock =
+        !!schoolVal &&
+        !!gradeVal &&
+        Array.isArray(allowedNormalized) &&
+        allowedNormalized.length > 0 &&
+        allowedNormalized.indexOf(gradeVal) === -1;
+      if (shouldBlock) {
+        console.log('[Debug] Blocking search due to invalid grade', {
+          school: schoolVal,
+          grade: gradeValRaw,
+          allowedGrades: allowedNormalized
+        });
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Information not available.</div>';
+        return; // do NOT call /api/search
+      }
+      if (!districtVal || !schoolVal) {
         if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a district and school to search.</div>';
         return;
       }
