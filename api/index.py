@@ -1,7 +1,7 @@
 import json
 from flask import Flask, request, make_response, jsonify
 
-from api._shared import build_meta, build_modules, build_search, build_school_grades, build_meta_debug, build_grades_lookup_norm, _norm_school_name
+from api._shared import build_meta, build_modules, build_search, build_school_grades
 
 # Vercel: export a Flask WSGI app at module scope
 app = Flask(__name__)
@@ -30,19 +30,12 @@ def api_health():
 def api_meta():
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
-    dbg = False
     try:
-        dbg = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
+        if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
+            return json_utf8({'ok': True, 'route': 'meta'})
     except Exception:
-        dbg = False
+        pass
     data = build_meta()
-    if dbg:
-        # Attach expanded debug without short-circuiting
-        try:
-            extra = build_meta_debug()
-            data['_debug_summary'] = extra
-        except Exception as e:
-            data['_debug_summary'] = {'error': str(e)}
     return json_utf8(data)
 
 
@@ -67,19 +60,8 @@ def api_search():
         'district': (request.args.get('district') or '').strip(),
         'school': (request.args.get('school') or '').strip(),
         'grade': (request.args.get('grade') or '').strip(),
+        'debug': (request.args.get('debug') or '').strip(),
     }
-    # Strict grade validation based on School Directories mapping
-    try:
-        school_name = params['school']
-        grade_sel = params['grade']
-        if school_name and grade_sel:
-            lookup = build_grades_lookup_norm()
-            allowed = lookup.get(_norm_school_name(school_name), [])
-            if allowed and grade_sel not in allowed:
-                return json_utf8({'results': [], 'error': None, 'note': 'information_not_available'})
-    except Exception:
-        # On any error, fall through to existing behavior
-        pass
     data = build_search(params)
     return json_utf8(data)
 
@@ -90,20 +72,6 @@ def api_school_grades():
         return json_utf8({'ok': True}, 204)
     data = build_school_grades()
     return json_utf8(data)
-
-@app.route('/meta_debug', methods=['GET', 'OPTIONS'])
-@app.route('/api/meta_debug', methods=['GET', 'OPTIONS'])
-def api_meta_debug():
-    if request.method == 'OPTIONS':
-        return json_utf8({'ok': True}, 204)
-    return json_utf8(build_meta_debug())
-
-@app.route('/ping', methods=['GET', 'OPTIONS'])
-@app.route('/api/ping', methods=['GET', 'OPTIONS'])
-def api_ping():
-    if request.method == 'OPTIONS':
-        return json_utf8({'ok': True}, 204)
-    return json_utf8({'ok': True})
 
 @app.route('/api/index.py', methods=['GET', 'OPTIONS'])
 @app.route('/api/index', methods=['GET', 'OPTIONS'])
