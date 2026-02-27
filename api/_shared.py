@@ -580,29 +580,13 @@ def build_meta(debug: bool = False):
     for r in pacing_rows:
         grade = r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or ''
         curriculum = r.get(_normalize_header('Curriculum')) or r.get('curriculum') or ''
-        if str(grade).strip():
-            g = str(grade).strip()
-            grades_set.add('K' if g.lower() == 'k' else g)
-        if curriculum:
+        if str(curriculum).strip():
             curricula_set.add(curriculum.strip())
-    if not grades_set and schools_rows:
-        for r in schools_rows:
-            grade_cell = (
-                r.get('grade') or r.get('grades') or r.get('grades_served')
-                or r.get('grade_level') or r.get('grade_levels') or ''
-            )
-            if not grade_cell:
-                continue
-            parts = re.split(r"[^0-9kK]+", str(grade_cell))
-            for p in parts:
-                p = (p or '').strip()
-                if not p:
-                    continue
-                if p.lower() == 'k':
-                    grades_set.add('K')
-                elif p.isdigit():
-                    grades_set.add(p)
-    grades_sorted = sorted(grades_set, key=lambda g: (g != 'K', int(g) if str(g).isdigit() else 0))
+    # Always return a global K–12 list (Goal A). Optionally include PK by toggling include_pk.
+    def _grades_global_k12(include_pk: bool = False) -> list[str]:
+        base = ['K'] + [str(i) for i in range(1, 13)]
+        return (['PK'] + base) if include_pk else base
+    grades_sorted = _grades_global_k12(include_pk=False)
     if not schools_list and pacing_rows:
         derived = _meta_from_pacing(pacing_rows)
         for d in derived.get('districts', []):
@@ -613,9 +597,6 @@ def build_meta(debug: bool = False):
                 schools_list.append({'district': d, 'school': s})
         for c in derived.get('curricula', []):
             curricula_set.add(c)
-        for g in derived.get('grades', []):
-            grades_set.add(g)
-        grades_sorted = sorted(grades_set, key=lambda g: (g != 'K', int(g) if str(g).isdigit() else 0))
     meta = {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
