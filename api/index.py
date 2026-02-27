@@ -30,12 +30,12 @@ def api_health():
 def api_meta():
     if request.method == 'OPTIONS':
         return json_utf8({'ok': True}, 204)
+    debug_flag = False
     try:
-        if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
-            return json_utf8({'ok': True, 'route': 'meta'})
+        debug_flag = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
     except Exception:
-        pass
-    data = build_meta()
+        debug_flag = False
+    data = build_meta(debug=debug_flag)
     return json_utf8(data)
 
 
@@ -94,13 +94,12 @@ def api_dispatch_rewrite():
     if tail == 'health':
         return json_utf8({'ok': True})
     if tail == 'meta':
-        # support debug=1 passthrough
+        debug_flag = False
         try:
-            if str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes'):
-                return json_utf8({'ok': True, 'route': 'meta'})
+            debug_flag = str(request.args.get('debug', '')).lower() in ('1', 'true', 'yes')
         except Exception:
-            pass
-        return json_utf8(build_meta())
+            debug_flag = False
+        return json_utf8(build_meta(debug=debug_flag))
     if tail == 'modules':
         curriculum = (request.args.get('curriculum') or '').strip()
         grade = (request.args.get('grade') or '').strip()
