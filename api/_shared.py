@@ -510,7 +510,7 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
     return out
 
 
-def build_meta():
+def build_meta(debug: bool = False):
     try:
         schools_rows = _fetch_schools_csv()
     except Exception:
@@ -523,15 +523,31 @@ def build_meta():
     schools_list = []
     curricula_set = set()
     grades_set = set()
+    # Robust header candidates for School Directories
     district_candidates = {
-        _normalize_header('District #'), 'district', 'district_number', 'district_no',
-        'district_id', 'districtid'
+        _normalize_header('District #'), 'district_#',
+        'district', _normalize_header('District'),
+        'district_number', 'district_no', 'district_id', 'districtid'
     }
     school_candidates = {
+        _normalize_header('School Name'), 'school_name',
         _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
-        'school_name', 'school'
+        'school'
     }
     curriculum_candidates = { _normalize_header('Curriculum'), 'curriculum', 'literacy_curriculum' }
+    # Debug collection
+    debug_info = {
+        'tab': 'School Directories',
+        'detected_headers': [],
+        'row_count': 0,
+        'district_count': 0,
+        'school_count': 0,
+        'missing_field_counts': {'district': 0, 'school': 0}
+    }
+    try:
+        debug_info['detected_headers'] = (list(schools_rows[0].keys()) if schools_rows else [])
+    except Exception:
+        pass
     for r in schools_rows:
         district = ''
         for key in district_candidates:
@@ -557,6 +573,10 @@ def build_meta():
             schools_list.append({'district': district, 'school': school})
         if curriculum:
             curricula_set.add(curriculum)
+        if not district:
+            debug_info['missing_field_counts']['district'] += 1
+        if not school:
+            debug_info['missing_field_counts']['school'] += 1
     for r in pacing_rows:
         grade = r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or ''
         curriculum = r.get(_normalize_header('Curriculum')) or r.get('curriculum') or ''
@@ -596,12 +616,19 @@ def build_meta():
         for g in derived.get('grades', []):
             grades_set.add(g)
         grades_sorted = sorted(grades_set, key=lambda g: (g != 'K', int(g) if str(g).isdigit() else 0))
-    return {
+    meta = {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
         'grades': grades_sorted,
         'curricula': sorted(curricula_set),
     }
+    # Fill debug counts
+    debug_info['row_count'] = len(schools_rows)
+    debug_info['district_count'] = len(set([s['district'] for s in schools_list if s.get('district')]))
+    debug_info['school_count'] = len(schools_list)
+    if debug:
+        meta['debug'] = debug_info
+    return meta
 
 
 def build_modules(curriculum: str, grade: str):
