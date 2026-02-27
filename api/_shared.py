@@ -21,10 +21,6 @@ logger.setLevel(logging.INFO)
 # Track last-seen header order for logging/index mapping
 LAST_PACING_HEADERS_ORDER = []
 LAST_SCHOOLS_HEADERS_ORDER = []
-LAST_FETCH_INFO = {
-    'schools': {'used_url': '', 'candidates': []},
-    'pacing': {'used_url': '', 'candidates': []},
-}
 
 # Configuration for Google Sheet source
 SHEET_ID = os.environ.get('SHEET_ID', '12xrUodG0RyTpAlfo6_CO7phNY2LdzjH9mqieJQIV3Xs').strip()
@@ -32,7 +28,7 @@ GID_FOR_PACING = os.environ.get('GID_FOR_PACING', os.environ.get('SHEET_GID_PACI
 GID_FOR_SCHOOLS = os.environ.get('GID_FOR_SCHOOLS', os.environ.get('SHEET_GID_SCHOOLS', '')).strip()
 
 DEFAULT_PACING_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=0&single=true'
-DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT4AF0prElSWZtki_k9Xv1KPA01lARZf5-ctTFz9vi2qnTpLe2ji_M7aXi2v_Uo-u2_NuizVhINlaua/pubhtml?gid=1673123403&single=true'
+DEFAULT_SCHOOLS_PUBHTML = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSE0Mlty0JFy27H58nEULY3GNCsvwyCfIw4CQvf2_KbXsGXa4GIhU_SQojf5eXdz1MkKO7se9lJyjZT/pubhtml?gid=136947076&single=true'
 
 
 def json_response(data: dict, status: int = 200, extra_headers: dict | None = None):
@@ -71,9 +67,6 @@ SCHOOLS_CSV = os.environ.get('SCHOOLS_CSV', _pubhtml_to_csv(DEFAULT_SCHOOLS_PUBH
 SHEET_BASE_PUB = os.environ.get('SHEET_BASE_PUB', f'https://docs.google.com/spreadsheets/d/{SHEET_ID}/pub').strip()
 TAB_PACING = os.environ.get('TAB_PACING', 'Pacing Guide')
 TAB_SCHOOLS = os.environ.get('TAB_SCHOOLS', 'School Directories')
-
-def _norm_key_part(s: str) -> str:
-    return str(s or '').strip().lower()
 
 
 def _normalize_header(h):
@@ -303,72 +296,59 @@ def _fetch_csv_from_url(url: str, context: str = ''):
 
 
 def _fetch_schools_csv():
-    global LAST_SCHOOLS_HEADERS_ORDER, LAST_FETCH_INFO
-    candidates = []
-    # 1) SHEET_ID + GID
-    if SHEET_ID and GID_FOR_SCHOOLS:
-        candidates.append(f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_SCHOOLS}")
-    # 2) Explicit CSV with gid
-    if SCHOOLS_CSV and 'gid=' in SCHOOLS_CSV:
-        candidates.append(SCHOOLS_CSV)
-    # 2b) Published School Directory URL -> force convert to CSV (ensures correct gid 1673123403)
-    if DEFAULT_SCHOOLS_PUBHTML:
-        candidates.append(_pubhtml_to_csv(DEFAULT_SCHOOLS_PUBHTML))
-    # 3) Build from tab name as fallback
-    for u in _build_csv_urls(TAB_SCHOOLS, GID_FOR_SCHOOLS):
-        candidates.append(u)
-    # Deduplicate preserving order
-    seen = set(); cands = []
-    for u in candidates:
-        if u not in seen:
-            cands.append(u); seen.add(u)
-    LAST_FETCH_INFO['schools']['candidates'] = cands
-    last_err = None
-    for url in cands:
+    global LAST_SCHOOLS_HEADERS_ORDER
+    if SCHOOLS_CSV:
+        rows = _fetch_csv_from_url(SCHOOLS_CSV)
         try:
-            rows = _fetch_csv_from_url(url)
             if rows:
                 LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
-                LAST_FETCH_INFO['schools']['used_url'] = url
-                return rows
-            last_err = RuntimeError('no rows parsed')
-        except Exception as e:
-            last_err = e
-            continue
-    raise RuntimeError(f"Failed to load School Directories CSV: {last_err}")
+        except Exception:
+            pass
+        return rows
+    if SHEET_ID and GID_FOR_SCHOOLS:
+        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_SCHOOLS}"
+        rows = _fetch_csv_from_url(url)
+        try:
+            if rows:
+                LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
+        except Exception:
+            pass
+        return rows
+    rows = _fetch_sheet(TAB_SCHOOLS, GID_FOR_SCHOOLS)
+    try:
+        if rows:
+            LAST_SCHOOLS_HEADERS_ORDER = list(rows[0].keys())
+    except Exception:
+        pass
+    return rows
 
 
 def _fetch_pacing_csv():
-    global LAST_PACING_HEADERS_ORDER, LAST_FETCH_INFO
-    candidates = []
-    # 1) Explicit PACING_CSV
+    global LAST_PACING_HEADERS_ORDER
     if PACING_CSV:
-        candidates.append(PACING_CSV)
-    # 2) SHEET_ID + GID
-    if SHEET_ID and GID_FOR_PACING:
-        candidates.append(f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_PACING}")
-    # 3) Build from tab name
-    for u in _build_csv_urls(TAB_PACING, GID_FOR_PACING):
-        candidates.append(u)
-    # Deduplicate
-    seen = set(); cands = []
-    for u in candidates:
-        if u not in seen:
-            cands.append(u); seen.add(u)
-    LAST_FETCH_INFO['pacing']['candidates'] = cands
-    last_err = None
-    for url in cands:
+        rows = _fetch_csv_from_url(PACING_CSV, context='pacing')
         try:
-            rows = _fetch_csv_from_url(url, context='pacing')
             if rows:
                 LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
-                LAST_FETCH_INFO['pacing']['used_url'] = url
-                return rows
-            last_err = RuntimeError('no rows parsed')
-        except Exception as e:
-            last_err = e
-            continue
-    raise RuntimeError(f"Failed to load Pacing CSV: {last_err}")
+        except Exception:
+            pass
+        return rows
+    if SHEET_ID and GID_FOR_PACING:
+        url = f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={GID_FOR_PACING}"
+        rows = _fetch_csv_from_url(url, context='pacing')
+        try:
+            if rows:
+                LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
+        except Exception:
+            pass
+        return rows
+    rows = _fetch_sheet(TAB_PACING, GID_FOR_PACING)
+    try:
+        if rows:
+            LAST_PACING_HEADERS_ORDER = list(rows[0].keys())
+    except Exception:
+        pass
+    return rows
 
 
 def _md_to_date(md: str, year: int) -> date:
@@ -499,9 +479,6 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         t = tok.strip().upper()
         if not t:
             return
-        # Map "OK" (often used to denote K) to "K"
-        if t == 'OK':
-            t = 'K'
         if t in ('PRE-K', 'PREK', 'P K', 'PK'):
             t = 'PK'
         if t in ('KDG', 'KINDERGARTEN'):
@@ -509,13 +486,8 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         if t == 'PK' or t == 'K' or t.isdigit():
             if t not in out:
                 out.append(t)
-    # First split by comma/semicolon/slash; if none, we'll split by whitespace later
-    prelim = re.split(r"[,;/]+", txt)
-    if len(prelim) == 1:
-        parts_iter = [prelim[0]]
-    else:
-        parts_iter = prelim
-    for part in parts_iter:
+    # Split by common separators
+    for part in re.split(r"[,;/]+", txt):
         s = part.strip()
         if not s:
             continue
@@ -534,13 +506,7 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
                 for n in rng:
                     add(from_num(n))
                 continue
-        # If still a long whitespace-delimited list like "OK 1 2 3 4", split by spaces
-        subs = re.split(r"\s+", s)
-        if len(subs) > 1:
-            for sub in subs:
-                add(sub)
-        else:
-            add(s)
+        add(s)
     return out
 
 
@@ -557,7 +523,6 @@ def build_meta():
     schools_list = []
     curricula_set = set()
     grades_set = set()
-    grades_by_school: dict[str, list[str]] = {}
     district_candidates = {
         _normalize_header('District #'), 'district', 'district_number', 'district_no',
         'district_id', 'districtid'
@@ -567,75 +532,31 @@ def build_meta():
         'school_name', 'school'
     }
     curriculum_candidates = { _normalize_header('Curriculum'), 'curriculum', 'literacy_curriculum' }
-    # Helper to pick flexible header names
-    def pick_value(row, candidates, contains_token=None):
-        for key in candidates:
-            val = row.get(key)
-            if val:
-                return val
-        if contains_token:
-            for k, v in row.items():
-                if contains_token in k and v:
-                    return v
-        return ''
-    missing_counts = {'district': 0, 'school': 0, 'grade': 0, 'curriculum': 0}
-
-    def extract_district_number(row: dict) -> str:
-        # Prefer explicit District # / number
-        preferred = [ _normalize_header('District #'), 'district_number', 'district_no' ]
-        for k in preferred:
-            v = row.get(k)
-            if v:
-                m = re.search(r"(\d+)", str(v))
-                if m:
-                    return m.group(1)
-        # Fallback: any 'district' containing a number
-        v2 = pick_value(row, [], contains_token='district')
-        if v2:
-            m = re.search(r"(\d+)", str(v2))
-            if m:
-                return m.group(1)
-        return ''
-
-    def extract_school_name(row: dict) -> str:
-        for k in school_candidates:
-            v = row.get(k)
-            if v:
-                return str(v).strip()
-        v2 = pick_value(row, [], contains_token='school')
-        return str(v2 or '').strip()
-
     for r in schools_rows:
-        district = extract_district_number(r)
-        school = extract_school_name(r)
+        district = ''
+        for key in district_candidates:
+            val = r.get(key)
+            if val:
+                district = str(val).strip()
+                break
+        school = ''
+        for key in school_candidates:
+            val = r.get(key)
+            if val:
+                school = str(val).strip()
+                break
         curriculum = ''
         for key in curriculum_candidates:
             val = r.get(key)
             if val:
                 curriculum = str(val).strip()
                 break
-        # Column E (grades served) normalized into tokens
-        grade_cell = (
-            r.get('grade') or r.get('grades') or r.get('grades_served')
-            or r.get('grade_level') or r.get('grade_levels') or ''
-        )
-        school_grade_tokens = _normalize_grade_tokens(str(grade_cell))
-        if not district: missing_counts['district'] += 1
-        if not school: missing_counts['school'] += 1
-        if not grade_cell: missing_counts['grade'] += 1
-        if not curriculum: missing_counts['curriculum'] += 1
         if district:
             districts_set.add(district)
         if district and school:
-            schools_list.append({'district': district, 'school': school, 'grades': school_grade_tokens})
-            # Build lookup key (district|school), normalized like the UI
-            key = f"{_norm_key_part(district)}|{_norm_key_part(school)}"
-            grades_by_school[key] = school_grade_tokens
-            # Also build a by-school-name map per requirements
+            schools_list.append({'district': district, 'school': school})
         if curriculum:
             curricula_set.add(curriculum)
-        for gt in school_grade_tokens:
-            grades_set.add(gt)
     for r in pacing_rows:
         grade = r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or ''
         curriculum = r.get(_normalize_header('Curriculum')) or r.get('curriculum') or ''
@@ -675,115 +596,12 @@ def build_meta():
         for g in derived.get('grades', []):
             grades_set.add(g)
         grades_sorted = sorted(grades_set, key=lambda g: (g != 'K', int(g) if str(g).isdigit() else 0))
-    # Build schoolsByDistrict map (friendly for clients)
-    schools_by_district_map: dict[str, list[str]] = {}
-    for item in schools_list:
-        d = item['district']; s = item['school']
-        schools_by_district_map.setdefault(d, []).append(s)
-    for d in list(schools_by_district_map.keys()):
-        schools_by_district_map[d] = sorted(list(set(schools_by_district_map[d])))
-    # Also build mapping keyed by school name only
-    grades_by_school_name: dict[str, list[str]] = {}
-    for item in schools_list:
-        grades_by_school_name[item['school']] = item.get('grades') or []
-
-    meta_out = {
+    return {
         'districts': sorted(districts_set),
         'schools': sorted(schools_list, key=lambda x: (x['district'], x['school'])),
         'grades': grades_sorted,
         'curricula': sorted(curricula_set),
-        'schoolsByDistrict': schools_by_district_map,
-        'gradesBySchool': grades_by_school_name,
     }
-    # Attach light debug summary for troubleshooting (not heavy rows)
-    try:
-        meta_out['_debug_summary'] = {
-            'row_count_raw': len(schools_rows),
-            'header_row': list(schools_rows[0].keys()) if schools_rows else [],
-            'missing_field_counts': missing_counts,
-        }
-    except Exception:
-        pass
-    return meta_out
-
-def build_meta_debug():
-    """
-    Returns detailed debug info for meta building without affecting /api/meta output.
-    """
-    try:
-        schools_rows = _fetch_schools_csv()
-    except Exception as e:
-        schools_rows = []
-        logger.error("Fetch schools failed: %s", e)
-    try:
-        pacing_rows = _fetch_pacing_csv()
-    except Exception as e:
-        pacing_rows = []
-        logger.error("Fetch pacing failed: %s", e)
-    header_row = list(schools_rows[0].keys()) if schools_rows else []
-    first_3 = schools_rows[:3] if schools_rows else []
-    # Compute missing field counts with flexible mapping
-    district_candidates = {
-        _normalize_header('District #'), 'district', 'district_number', 'district_no',
-        'district_id', 'districtid'
-    }
-    school_candidates = {
-        _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
-        'school_name', 'school'
-    }
-    curriculum_candidates = { _normalize_header('Curriculum'), 'curriculum', 'literacy_curriculum' }
-    def pick_value(row, candidates, contains_token=None):
-        for key in candidates:
-            val = row.get(key)
-            if val:
-                return val
-        if contains_token:
-            for k, v in row.items():
-                if contains_token in k and v:
-                    return v
-        return ''
-    missing = {'district': 0, 'school': 0, 'grade': 0, 'curriculum': 0}
-    for r in schools_rows:
-        d = ''
-        for key in district_candidates:
-            val = r.get(key)
-            if val: d = str(val).strip(); break
-        if not d: d = str(pick_value(r, [], contains_token='district') or '').strip()
-        s = ''
-        for key in school_candidates:
-            val = r.get(key)
-            if val: s = str(val).strip(); break
-        if not s: s = str(pick_value(r, [], contains_token='school') or '').strip()
-        c = ''
-        for key in curriculum_candidates:
-            val = r.get(key)
-            if val: c = str(val).strip(); break
-        gcell = r.get('grade') or r.get('grades') or r.get('grades_served') or r.get('grade_level') or r.get('grade_levels') or ''
-        if not d: missing['district'] += 1
-        if not s: missing['school'] += 1
-        if not gcell: missing['grade'] += 1
-        if not c: missing['curriculum'] += 1
-    debug = {
-        'sheet_urls_used': {
-            'schools': LAST_FETCH_INFO['schools']['used_url'],
-            'pacing': LAST_FETCH_INFO['pacing']['used_url'],
-        },
-        'tabs_gids_used': {
-            'TAB_SCHOOLS': TAB_SCHOOLS,
-            'TAB_PACING': TAB_PACING,
-            'GID_FOR_SCHOOLS': GID_FOR_SCHOOLS,
-            'GID_FOR_PACING': GID_FOR_PACING,
-        },
-        'candidates': {
-            'schools': LAST_FETCH_INFO['schools']['candidates'],
-            'pacing': LAST_FETCH_INFO['pacing']['candidates'],
-        },
-        'row_count_raw': len(schools_rows),
-        'header_row': header_row,
-        'first_3_rows': first_3,
-        'missing_field_counts': missing,
-    }
-    return debug
 
 
 def build_modules(curriculum: str, grade: str):
@@ -830,6 +648,7 @@ def build_search(params: dict):
     q_district = (params.get('district') or '').strip()
     q_school = (params.get('school') or '').strip()
     q_grade = (params.get('grade') or '').strip()
+    debug_flag = str(params.get('debug') or '').lower() in ('1', 'true', 'yes')
     ref = None
     try:
         if q_date:
@@ -842,6 +661,19 @@ def build_search(params: dict):
     except Exception:
         schools_rows = []
     resolved_curriculum = ''
+    # Compute allowed grades for (district, school) from School Directories (Column E variants)
+    allowed_grades: list[str] = []
+    if q_district and q_school and schools_rows:
+        for r in schools_rows:
+            rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
+            rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
+            if rd == q_district and rs == q_school:
+                grade_cell = (
+                    r.get('grade') or r.get('grades') or r.get('grades_served')
+                    or r.get('grade_level') or r.get('grade_levels') or r.get('column_e') or ''
+                )
+                allowed_grades = _normalize_grade_tokens(str(grade_cell))
+                break
     for r in schools_rows:
         rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
         rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
@@ -849,6 +681,19 @@ def build_search(params: dict):
             resolved_curriculum = (r.get(_normalize_header('Curriculum')) or r.get('curriculum') or '').strip()
             if resolved_curriculum:
                 break
+    # If we confidently know this grade is not allowed for this school, short-circuit with empty results
+    if q_grade and allowed_grades:
+        # Normalize selected grade token for comparison
+        sel = q_grade.upper()
+        if sel == 'KINDERGARTEN':
+            sel = 'K'
+        if sel in ('PRE-K', 'PREK', 'P K'):
+            sel = 'PK'
+        if sel not in set(allowed_grades):
+            resp = {'results': [], 'message': 'Information not available for this grade at this school.'}
+            if debug_flag:
+                resp['allowed_grades'] = allowed_grades
+            return resp
     try:
         pacing_rows = _fetch_pacing_csv()
     except Exception:
@@ -903,7 +748,10 @@ def build_search(params: dict):
         if ref is not None:
             item['dateRange'] = {'start': start_iso, 'end': end_iso}
         results.append(item)
-    return {'results': results}
+    out = {'results': results}
+    if debug_flag and allowed_grades:
+        out['allowed_grades'] = allowed_grades
+    return out
 
 
 def build_school_grades():
@@ -951,31 +799,3 @@ def build_school_grades():
         if district and school:
             items.append({'district': district, 'school': school, 'grades': grades})
     return {'items': items}
-
-def build_grades_lookup_norm() -> dict[str, list[str]]:
-    """
-    Build and return a dictionary keyed by normalized school name -> allowed grade tokens.
-    """
-    try:
-        schools_rows = _fetch_schools_csv()
-    except Exception:
-        schools_rows = []
-    out: dict[str, list[str]] = {}
-    for r in schools_rows:
-        school = (
-            r.get(_normalize_header('School Name - NYC DOE')) or
-            r.get('school_name_-_nyc_doe') or
-            r.get('school_name_nyc_doe') or
-            r.get('school_name') or
-            r.get('school') or ''
-        )
-        school_disp = str(school or '').strip()
-        if not school_disp:
-            continue
-        grade_cell = (
-            r.get('grade') or r.get('grades') or r.get('grades_served')
-            or r.get('grade_level') or r.get('grade_levels') or ''
-        )
-        grades = _normalize_grade_tokens(str(grade_cell))
-        out[_norm_school_name(school_disp)] = grades
-    return out
