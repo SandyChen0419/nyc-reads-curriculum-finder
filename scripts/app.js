@@ -412,9 +412,28 @@
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
       const schoolVal = String(els.schoolInput.value || '').trim();
+      const gradeVal = String(els.grade.value || '').trim();
+      const dateVal = String(els.date.value || '').trim();
+
+      // Validation (district optional)
       if (!schoolVal) {
         if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a school to search.</div>';
         return;
+      }
+      if (!gradeVal) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a grade level to search.</div>';
+        return;
+      }
+      if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a date to search.</div>';
+        return;
+      }
+      // If district is blank, attempt to infer from meta.schools
+      if (!districtVal && state.meta && Array.isArray(state.meta.schools)) {
+        const match = state.meta.schools.find(s => String(s.school || '').trim() === schoolVal);
+        if (match && match.district) {
+          els.district.value = String(match.district);
+        }
       }
       void doSearch();
     };
