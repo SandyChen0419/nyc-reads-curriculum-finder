@@ -669,26 +669,33 @@ def build_search(params: dict):
     except Exception:
         schools_rows = []
     resolved_curriculum = ''
-    # Compute allowed grades for (district, school) from School Directories (Column E variants)
+    # Compute allowed grades and resolve curriculum; allow district to be optional
+    eff_district = q_district
     allowed_grades: list[str] = []
-    if q_district and q_school and schools_rows:
-        for r in schools_rows:
-            rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
-            rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
-            if rd == q_district and rs == q_school:
-                grade_cell = (
-                    r.get('grade') or r.get('grades') or r.get('grades_served')
-                    or r.get('grade_level') or r.get('grade_levels') or r.get('column_e') or ''
-                )
-                allowed_grades = _normalize_grade_tokens(str(grade_cell))
-                break
-    for r in schools_rows:
-        rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
-        rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
-        if rd == q_district and rs == q_school:
-            resolved_curriculum = (r.get(_normalize_header('Curriculum')) or r.get('curriculum') or '').strip()
-            if resolved_curriculum:
-                break
+    if schools_rows and q_school:
+        chosen_row = None
+        if q_district:
+            for r in schools_rows:
+                rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
+                rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
+                if rd == q_district and rs == q_school:
+                    chosen_row = r
+                    break
+        if not chosen_row:
+            # Fallback: first row matching school name (no district)
+            for r in schools_rows:
+                rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
+                if rs == q_school:
+                    chosen_row = r
+                    eff_district = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
+                    break
+        if chosen_row:
+            grade_cell = (
+                chosen_row.get('grade') or chosen_row.get('grades') or chosen_row.get('grades_served')
+                or chosen_row.get('grade_level') or chosen_row.get('grade_levels') or chosen_row.get('column_e') or ''
+            )
+            allowed_grades = _normalize_grade_tokens(str(grade_cell))
+            resolved_curriculum = (chosen_row.get(_normalize_header('Curriculum')) or chosen_row.get('curriculum') or '').strip()
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
     if q_grade and allowed_grades:
         # Normalize selected grade token for comparison
@@ -698,7 +705,12 @@ def build_search(params: dict):
         if sel in ('PRE-K', 'PREK', 'P K'):
             sel = 'PK'
         if sel not in set(allowed_grades):
-            resp = {'results': [], 'message': 'Information not available for this grade at this school.'}
+            resp = {
+                'results': [],
+                'message': 'Information not available for this grade at this school.',
+                'selected_school': q_school,
+                'selected_grade': sel
+            }
             if debug_flag:
                 resp['allowed_grades'] = allowed_grades
             return resp
@@ -739,7 +751,7 @@ def build_search(params: dict):
             start_iso = start_dt.isoformat()
             end_iso = end_dt.isoformat()
         item = {
-            'district': q_district,
+            'district': eff_district or q_district,
             'school': q_school,
             'grade': str(grade),
             'curriculum': resolved_curriculum or curriculum,
