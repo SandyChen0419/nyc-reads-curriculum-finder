@@ -416,13 +416,6 @@
         if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a school to search.</div>';
         return;
       }
-      // If district is blank, attempt to infer from meta.schools
-      if (!districtVal && state.meta && Array.isArray(state.meta.schools)) {
-        const match = state.meta.schools.find(s => String(s.school || '').trim() === schoolVal);
-        if (match && match.district) {
-          els.district.value = String(match.district);
-        }
-      }
       void doSearch();
     };
 
