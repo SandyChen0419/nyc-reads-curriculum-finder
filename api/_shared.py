@@ -654,6 +654,8 @@ def build_modules(curriculum: str, grade: str):
 def build_search(params: dict):
     q_date = (params.get('date') or '').strip()
     q_district = (params.get('district') or '').strip()
+    if q_district.lower() == 'null':
+        q_district = ''
     q_school = (params.get('school') or '').strip()
     q_grade = (params.get('grade') or '').strip()
     debug_flag = str(params.get('debug') or '').lower() in ('1', 'true', 'yes')
@@ -713,6 +715,15 @@ def build_search(params: dict):
             }
             if debug_flag:
                 resp['allowed_grades'] = allowed_grades
+                resp['received_district'] = q_district
+                resp['received_school'] = q_school
+                resp['received_grade'] = q_grade
+                resp['received_date'] = q_date
+                applied = ['school']
+                if q_grade: applied.append('grade')
+                if ref is not None: applied.append('date')
+                if q_district: applied.append('district')
+                resp['applied_filters'] = applied
             return resp
     try:
         pacing_rows = _fetch_pacing_csv()
@@ -771,6 +782,16 @@ def build_search(params: dict):
     out = {'results': results}
     if debug_flag and allowed_grades:
         out['allowed_grades'] = allowed_grades
+        out['received_district'] = q_district
+        out['received_school'] = q_school
+        out['received_grade'] = q_grade
+        out['received_date'] = q_date
+        applied = []
+        if q_school: applied.append('school')
+        if q_grade: applied.append('grade')
+        if ref is not None: applied.append('date')
+        if q_district: applied.append('district')
+        out['applied_filters'] = applied
     return out
 
 
