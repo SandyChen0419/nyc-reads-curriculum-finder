@@ -412,55 +412,23 @@
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
       const schoolVal = String(els.schoolInput.value || '').trim();
-      // Validation-only (do not change dropdowns): if a selected grade is NOT offered by selected school, show "Information not available." and do NOT search
-      const normalizeToken = (t) => {
-        const s = String(t || '').trim().toUpperCase();
-        if (!s) return '';
-        if (s === 'PRE-K' || s === 'PREK' || s === 'P K' || s === 'PK') return 'PK';
-        if (s === 'KDG' || s === 'KINDERGARTEN' || s === '0K' || s === 'OK' || s === 'K') return 'K';
-        return s;
-      };
-      const gradeValRaw = String(els.grade.value || '').trim();
-      const gradeVal = normalizeToken(gradeValRaw);
-      // Prefer meta.gradesBySchool (school name -> list), else fall back to our internal map (district|school)
-      let allowedRaw = [];
-      if (state.meta && state.meta.gradesBySchool && schoolVal && Array.isArray(state.meta.gradesBySchool[schoolVal])) {
-        allowedRaw = state.meta.gradesBySchool[schoolVal];
-      } else {
-        const key = schoolKey(districtVal, schoolVal);
-        if (state.gradesBySchool && (state.gradesBySchool[key] || state.gradesBySchool[schoolVal])) {
-          allowedRaw = state.gradesBySchool[key] || state.gradesBySchool[schoolVal] || [];
-        }
-      }
-      const allowedNormalized = Array.isArray(allowedRaw) ? allowedRaw.map(normalizeToken) : [];
-      const shouldBlock =
-        !!schoolVal &&
-        !!gradeVal &&
-        Array.isArray(allowedNormalized) &&
-        allowedNormalized.length > 0 &&
-        allowedNormalized.indexOf(gradeVal) === -1;
-      if (shouldBlock) {
-        console.log('[Debug] Blocking search due to invalid grade', {
-          school: schoolVal,
-          grade: gradeValRaw,
-          allowedGrades: allowedNormalized
-        });
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Information not available.</div>';
-        return; // do NOT call /api/search
-      }
-      if (!districtVal || !schoolVal) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a district and school to search.</div>';
+      if (!schoolVal) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a school to search.</div>';
         return;
+      }
+      // If district is blank, attempt to infer from meta.schools
+      if (!districtVal && state.meta && Array.isArray(state.meta.schools)) {
+        const match = state.meta.schools.find(s => String(s.school || '').trim() === schoolVal);
+        if (match && match.district) {
+          els.district.value = String(match.district);
+        }
       }
       void doSearch();
     };
 
     els.district.addEventListener('change', () => { onDistrictChange(); });
-    // For <input list="..."> (datalist), 'input' fires on selection; 'change' may not always fire.
-    els.schoolInput.addEventListener('input', () => { recomputeGradeOptionsForSelection(); });
-    els.schoolInput.addEventListener('change', () => { recomputeGradeOptionsForSelection(); });
     els.schoolInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
-    els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); recomputeGradeOptionsForSelection(); });
+    els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); });
     els.grade.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.date.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.clear.addEventListener('click', () => {
