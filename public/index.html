@@ -4,13 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NYC Curriculum Finder</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="hero-contained">
       <div class="container">
         <div class="hero-frame">
-          <img class="hero-img" src="/nycreads-web-header.png" alt="NYC Reads header" />
+          <img class="hero-img" src="/assets/nycreads-web-header.png" alt="NYC Reads header">
           <div class="hero-overlay">
             <h1 class="hero-title">NYC Reads Curriculum Finder</h1>
             <p class="hero-subtitle">Discover curriculum, themes, and reading materials for NYC schools</p>
@@ -78,6 +78,23 @@
         <h2>Curriculum Information</h2>
         <div id="resultsMount"></div>
       </section>
+
+      <div class="feedback-card">
+        <h3>Help Us Improve</h3>
+        <p>
+          Is your school missing or something not quite right?
+        </p>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLSeODeXRcep62t4zdeilhRSIl_rC3Swo6H3NSdX-VXCeDfIvZw/viewform"
+          target="_blank"
+          class="btn btn-primary"
+        >
+          Submit Feedback Form →
+        </a>
+        <p class="feedback-note">
+          We review submissions regularly and use them to improve the tool.
+        </p>
+      </div>
     </main>
 
     <noscript>
@@ -86,7 +103,7 @@
       </div>
     </noscript>
 
-   <script defer src="/scripts/app.js"></script>
+    <script src="/app.js" defer></script>
   </body>
   </html>
 
