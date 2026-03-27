@@ -1,5 +1,9 @@
 /* global window, document, fetch */
 (function initApp() {
+  console.log('app loaded');
+  console.log('district element', document.getElementById('filterDistrict'));
+  console.log('grade element', document.getElementById('filterGrade'));
+
   const els = {
     date: document.getElementById('filterDate'),
     district: document.getElementById('filterDistrict'),
@@ -412,9 +416,28 @@
       console.log('[Search] Button clicked');
       const districtVal = String(els.district.value || '').trim();
       const schoolVal = String(els.schoolInput.value || '').trim();
-      if (!districtVal || !schoolVal) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a district and school to search.</div>';
+      const gradeVal = String(els.grade.value || '').trim();
+      const dateVal = String(els.date.value || '').trim();
+
+      // Validation (district optional)
+      if (!schoolVal) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a school to search.</div>';
         return;
+      }
+      if (!gradeVal) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a grade level to search.</div>';
+        return;
+      }
+      if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a date to search.</div>';
+        return;
+      }
+      // If district is blank, attempt to infer from meta.schools
+      if (!districtVal && state.meta && Array.isArray(state.meta.schools)) {
+        const match = state.meta.schools.find(s => String(s.school || '').trim() === schoolVal);
+        if (match && match.district) {
+          els.district.value = String(match.district);
+        }
       }
       void doSearch();
     };
