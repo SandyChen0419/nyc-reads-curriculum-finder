@@ -227,7 +227,6 @@ details.about-more:not([open]) > summary::after { content:" ↓"; }
 }
 .book-title a { color: #1D4ED8; text-decoration: underline; text-underline-offset: 2px; }
 
-/* Feedback card */
 .feedback-card {
   margin-top: 32px;
   padding: 20px;
