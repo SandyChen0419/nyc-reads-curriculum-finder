@@ -401,7 +401,12 @@
       if (!res.ok) throw new Error('Failed to search');
       const json = await res.json();
       console.log('[Search] API response', json);
-      renderResults(Array.isArray(json.results) ? json.results : []);
+      const items = Array.isArray(json.results) ? json.results : [];
+      if (json.message && items.length === 0) {
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + escapeHTML(json.message) + '</div>';
+      } else {
+        renderResults(items);
+      }
     } catch (e) {
       console.error('Failed to fetch /api/search', e);
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Unable to load search results. Please try again.</div>';
