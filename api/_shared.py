@@ -91,6 +91,18 @@ def _csv_from_text(text):
 def normalize_text(s):
     return (s or '').replace('’', "'").replace('“', '"').replace('”', '"').strip()
 
+def normalize_name(s: str) -> str:
+    return str(s or '').strip().lower()
+
+
+def _normalize_grade_token(token: str) -> str:
+    t = str(token or '').strip().upper()
+    if t in ('PRE-K', 'PREK', 'P K', 'PK'):
+        return 'PK'
+    if t in ('KDG', 'KINDERGARTEN'):
+        return 'K'
+    return t
+
 
 def split_genres(s: str):
     if not s:
@@ -475,36 +487,49 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         return []
     txt = txt.replace('–', '-').replace('—', '-')
     out: list[str] = []
+
     def add(tok: str):
-        t = tok.strip().upper()
+        t = _normalize_grade_token(tok)
         if not t:
             return
-        if t in ('PRE-K', 'PREK', 'P K', 'PK'):
-            t = 'PK'
-        if t in ('KDG', 'KINDERGARTEN'):
-            t = 'K'
-        if t == 'PK' or t == 'K' or t.isdigit():
+        if t == 'PK' or t == 'K' or (t.isdigit() and 1 <= int(t) <= 12):
             if t not in out:
                 out.append(t)
+
+    def rank(tok: str) -> int:
+        t = _normalize_grade_token(tok)
+        if t == 'PK':
+            return 0
+        if t == 'K':
+            return 1
+        if t.isdigit():
+            n = int(t)
+            if 1 <= n <= 12:
+                return n + 1
+        return -1
+
+    def unrank(n: int) -> str:
+        if n == 0:
+            return 'PK'
+        if n == 1:
+            return 'K'
+        return str(n - 1)
+
     # Split by common separators
     for part in re.split(r"[,;/]+", txt):
         s = part.strip()
         if not s:
             continue
         if '-' in s:
-            a, b = [x.strip().upper() for x in s.split('-', 1)]
-            def to_num(x: str) -> int:
-                return 0 if x == 'PK' else (1 if x == 'K' else (int(x) if x.isdigit() else -1))
-            def from_num(n: int) -> str:
-                return 'PK' if n == 0 else ('K' if n == 1 else str(n))
-            sa, sb = to_num(a), to_num(b)
+            a, b = [x.strip() for x in s.split('-', 1)]
+            sa, sb = rank(a), rank(b)
             if sa >= 0 and sb >= 0:
                 if sa <= sb:
                     rng = range(sa, sb + 1)
                 else:
                     rng = range(sb, sa + 1)
                 for n in rng:
-                    add(from_num(n))
+                    add(unrank(n))
                 continue
         add(s)
     return out
@@ -672,7 +697,6 @@ def build_search(params: dict):
         schools_rows = _fetch_schools_csv()
     except Exception:
         schools_rows = []
-    resolved_curriculum = ''
     school_candidates = {
         _normalize_header('School Name'), 'school_name',
         _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
@@ -683,71 +707,83 @@ def build_search(params: dict):
         'district', _normalize_header('District'),
         'district_number', 'district_no', 'district_id', 'districtid'
     }
-    # Compute allowed grades and resolve curriculum; allow district to be optional
+    # Build normalized school mapping from School Directory before any curriculum filtering
+    grades_by_school: dict[str, set[str]] = {}
+    rows_by_school: dict[str, list[dict]] = {}
+    for r in schools_rows:
+        school = ''
+        for key in school_candidates:
+            val = r.get(key)
+            if val:
+                school = str(val).strip()
+                break
+        if not school:
+            continue
+        school_norm = normalize_name(school)
+        grade_cell = (
+            r.get(_normalize_header('Grade Level')) or r.get('grade_level')
+            or r.get('grade_levels') or r.get('grade') or r.get('grades')
+            or r.get('grades_served') or r.get('column_e') or ''
+        )
+        grades = set(_normalize_grade_tokens(str(grade_cell)))
+        grades_by_school.setdefault(school_norm, set()).update(grades)
+        rows_by_school.setdefault(school_norm, []).append(r)
+
+    resolved_curriculum = ''
     eff_district = q_district
-    allowed_grades: list[str] = []
-    if schools_rows and q_school:
-        chosen_row = None
-        if q_district:
-            for r in schools_rows:
-                rd = ''
-                for key in district_candidates:
-                    val = r.get(key)
-                    if val:
-                        rd = str(val).strip()
-                        break
-                rs = ''
-                for key in school_candidates:
-                    val = r.get(key)
-                    if val:
-                        rs = str(val).strip()
-                        break
-                if rd == q_district and rs == q_school:
-                    chosen_row = r
-                    break
-        if not chosen_row:
-            # Fallback: first row matching school name (no district)
-            for r in schools_rows:
-                rs = ''
-                for key in school_candidates:
-                    val = r.get(key)
-                    if val:
-                        rs = str(val).strip()
-                        break
-                if rs == q_school:
-                    chosen_row = r
-                    for key in district_candidates:
-                        val = r.get(key)
-                        if val:
-                            eff_district = str(val).strip()
-                            break
-                    break
-        if chosen_row:
-            grade_cell = (
-                chosen_row.get(_normalize_header('Grade Level')) or chosen_row.get('grade_level')
-                or chosen_row.get('grade_levels') or chosen_row.get('grade') or chosen_row.get('grades')
-                or chosen_row.get('grades_served') or chosen_row.get('column_e') or ''
-            )
-            allowed_grades = _normalize_grade_tokens(str(grade_cell))
-            resolved_curriculum = (chosen_row.get(_normalize_header('Curriculum')) or chosen_row.get('curriculum') or '').strip()
-    # If we confidently know this grade is not allowed for this school, short-circuit with empty results
-    if q_grade and allowed_grades:
-        # Normalize selected grade token for comparison
-        sel = q_grade.upper()
-        if sel == 'KINDERGARTEN':
-            sel = 'K'
-        if sel in ('PRE-K', 'PREK', 'P K'):
-            sel = 'PK'
-        if sel not in set(allowed_grades):
+    selected_school_norm = normalize_name(q_school)
+    selected_grade_norm = _normalize_grade_token(q_grade)
+    allowed_grades = sorted(list(grades_by_school.get(selected_school_norm, set())), key=lambda g: (g not in ('PK', 'K'), int(g) if g.isdigit() else (-1 if g == 'PK' else 0)))
+
+    # Enforce school-grade validation BEFORE any pacing filtering
+    if q_school and q_grade:
+        if not allowed_grades:
+            resp = {
+                'results': [],
+                'message': 'School data not found.'
+            }
+            if debug_flag:
+                resp['selected_school'] = q_school
+                resp['normalized_school'] = selected_school_norm
+                resp['selected_grade'] = selected_grade_norm
+                resp['allowed_grades'] = allowed_grades
+            return resp
+        if selected_grade_norm not in set(allowed_grades):
             resp = {
                 'results': [],
                 'message': 'Information not available for this grade at this school.'
             }
             if debug_flag:
                 resp['selected_school'] = q_school
-                resp['selected_grade'] = sel
+                resp['normalized_school'] = selected_school_norm
+                resp['selected_grade'] = selected_grade_norm
                 resp['allowed_grades'] = allowed_grades
             return resp
+
+    # Resolve curriculum/district after validation
+    chosen_row = None
+    if selected_school_norm and selected_school_norm in rows_by_school:
+        candidate_rows = rows_by_school[selected_school_norm]
+        if q_district:
+            for r in candidate_rows:
+                rd = ''
+                for key in district_candidates:
+                    val = r.get(key)
+                    if val:
+                        rd = str(val).strip()
+                        break
+                if rd == q_district:
+                    chosen_row = r
+                    break
+        if not chosen_row:
+            chosen_row = candidate_rows[0]
+        if chosen_row:
+            for key in district_candidates:
+                val = chosen_row.get(key)
+                if val:
+                    eff_district = str(val).strip()
+                    break
+            resolved_curriculum = (chosen_row.get(_normalize_header('Curriculum')) or chosen_row.get('curriculum') or '').strip()
     try:
         pacing_rows = _fetch_pacing_csv()
     except Exception:
