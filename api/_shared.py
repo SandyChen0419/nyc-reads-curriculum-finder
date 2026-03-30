@@ -741,11 +741,11 @@ def build_search(params: dict):
         if sel not in set(allowed_grades):
             resp = {
                 'results': [],
-                'message': 'Information not available for this grade at this school.',
-                'selected_school': q_school,
-                'selected_grade': sel
+                'message': 'Information not available for this grade at this school.'
             }
             if debug_flag:
+                resp['selected_school'] = q_school
+                resp['selected_grade'] = sel
                 resp['allowed_grades'] = allowed_grades
             return resp
     try:
