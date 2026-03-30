@@ -110,6 +110,7 @@ def api_dispatch_rewrite():
             'district': (request.args.get('district') or '').strip(),
             'school': (request.args.get('school') or '').strip(),
             'grade': (request.args.get('grade') or '').strip(),
+            'debug': (request.args.get('debug') or '').strip(),
         }
         return json_utf8(build_search(params))
     return json_utf8({'error': 'Not Found', 'path': orig}, 404)
