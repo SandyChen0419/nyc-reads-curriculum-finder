@@ -95,6 +95,20 @@ def normalize_name(s: str) -> str:
     return str(s or '').strip().lower()
 
 
+def find_matching_school(selected_school: str, grades_by_school: dict[str, set[str]]) -> str | None:
+    selected = normalize_name(selected_school)
+    if not selected:
+        return None
+    # Exact normalized match first
+    if selected in grades_by_school:
+        return selected
+    # Flexible contains match for minor formatting differences
+    for school_name in grades_by_school:
+        if selected in school_name or school_name in selected:
+            return school_name
+    return None
+
+
 def _normalize_grade_token(token: str) -> str:
     t = str(token or '').strip().upper()
     if t in ('PRE-K', 'PREK', 'P K', 'PK'):
@@ -733,11 +747,12 @@ def build_search(params: dict):
     eff_district = q_district
     selected_school_norm = normalize_name(q_school)
     selected_grade_norm = _normalize_grade_token(q_grade)
-    allowed_grades = sorted(list(grades_by_school.get(selected_school_norm, set())), key=lambda g: (g not in ('PK', 'K'), int(g) if g.isdigit() else (-1 if g == 'PK' else 0)))
+    matched_school = find_matching_school(q_school, grades_by_school)
+    allowed_grades = sorted(list(grades_by_school.get(matched_school, set()) if matched_school else []), key=lambda g: (g not in ('PK', 'K'), int(g) if g.isdigit() else (-1 if g == 'PK' else 0)))
 
     # Enforce school-grade validation BEFORE any pacing filtering
     if q_school and q_grade:
-        if not allowed_grades:
+        if not matched_school or not allowed_grades:
             resp = {
                 'results': [],
                 'message': 'School data not found.'
@@ -745,7 +760,7 @@ def build_search(params: dict):
             if debug_flag:
                 resp['selected_school'] = q_school
                 resp['normalized_school'] = selected_school_norm
-                resp['selected_grade'] = selected_grade_norm
+                resp['matched_school'] = matched_school
                 resp['allowed_grades'] = allowed_grades
             return resp
         if selected_grade_norm not in set(allowed_grades):
@@ -756,14 +771,15 @@ def build_search(params: dict):
             if debug_flag:
                 resp['selected_school'] = q_school
                 resp['normalized_school'] = selected_school_norm
+                resp['matched_school'] = matched_school
                 resp['selected_grade'] = selected_grade_norm
                 resp['allowed_grades'] = allowed_grades
             return resp
 
     # Resolve curriculum/district after validation
     chosen_row = None
-    if selected_school_norm and selected_school_norm in rows_by_school:
-        candidate_rows = rows_by_school[selected_school_norm]
+    if matched_school and matched_school in rows_by_school:
+        candidate_rows = rows_by_school[matched_school]
         if q_district:
             for r in candidate_rows:
                 rd = ''
