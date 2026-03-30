@@ -673,6 +673,16 @@ def build_search(params: dict):
     except Exception:
         schools_rows = []
     resolved_curriculum = ''
+    school_candidates = {
+        _normalize_header('School Name'), 'school_name',
+        _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
+        'school'
+    }
+    district_candidates = {
+        _normalize_header('District #'), 'district_#',
+        'district', _normalize_header('District'),
+        'district_number', 'district_no', 'district_id', 'districtid'
+    }
     # Compute allowed grades and resolve curriculum; allow district to be optional
     eff_district = q_district
     allowed_grades: list[str] = []
@@ -680,23 +690,43 @@ def build_search(params: dict):
         chosen_row = None
         if q_district:
             for r in schools_rows:
-                rd = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
-                rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
+                rd = ''
+                for key in district_candidates:
+                    val = r.get(key)
+                    if val:
+                        rd = str(val).strip()
+                        break
+                rs = ''
+                for key in school_candidates:
+                    val = r.get(key)
+                    if val:
+                        rs = str(val).strip()
+                        break
                 if rd == q_district and rs == q_school:
                     chosen_row = r
                     break
         if not chosen_row:
             # Fallback: first row matching school name (no district)
             for r in schools_rows:
-                rs = (r.get(_normalize_header('School Name - NYC DOE')) or r.get('school') or '').strip()
+                rs = ''
+                for key in school_candidates:
+                    val = r.get(key)
+                    if val:
+                        rs = str(val).strip()
+                        break
                 if rs == q_school:
                     chosen_row = r
-                    eff_district = (r.get(_normalize_header('District #')) or r.get('district') or '').strip()
+                    for key in district_candidates:
+                        val = r.get(key)
+                        if val:
+                            eff_district = str(val).strip()
+                            break
                     break
         if chosen_row:
             grade_cell = (
-                chosen_row.get('grade') or chosen_row.get('grades') or chosen_row.get('grades_served')
-                or chosen_row.get('grade_level') or chosen_row.get('grade_levels') or chosen_row.get('column_e') or ''
+                chosen_row.get(_normalize_header('Grade Level')) or chosen_row.get('grade_level')
+                or chosen_row.get('grade_levels') or chosen_row.get('grade') or chosen_row.get('grades')
+                or chosen_row.get('grades_served') or chosen_row.get('column_e') or ''
             )
             allowed_grades = _normalize_grade_tokens(str(grade_cell))
             resolved_curriculum = (chosen_row.get(_normalize_header('Curriculum')) or chosen_row.get('curriculum') or '').strip()
