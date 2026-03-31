@@ -559,6 +559,24 @@ def _normalize_selected_grade(value: str) -> str:
     return tokens[0] if tokens else str(value or '').strip().upper()
 
 
+def _is_high_school_row(row: dict) -> bool:
+    """
+    Treat a school as high school if the School Directories row indicates HS exactly,
+    or if its grade band tokens are exclusively 9-12.
+    Uses exact normalized checks only.
+    """
+    hs_tokens = {'9', '10', '11', '12'}
+    raw_grade = _normalize_lookup_text(row.get('grade') or '')
+    if raw_grade in {'high school', 'hs'}:
+        return True
+    band_tokens = _normalize_grade_tokens(
+        str(row.get('grade_level') or row.get('grade_levels') or row.get('grade') or '')
+    )
+    if band_tokens and set(band_tokens).issubset(hs_tokens):
+        return True
+    return False
+
+
 def build_meta(debug: bool = False):
     try:
         schools_rows = _fetch_schools_csv()
@@ -725,37 +743,11 @@ def build_search(params: dict):
     # Compute allowed grades and resolve curriculum; allow district to be optional
     eff_district = q_district
     allowed_grades: list[str] = []
+    chosen_row = None
     selected_grade_norm = _normalize_selected_grade(q_grade)
     norm_q_school = _normalize_lookup_text(q_school)
     norm_q_district = _normalize_lookup_text(q_district)
-
-    # Current curriculum database does not contain grade 9-12 results.
-    # Short-circuit these exact normalized grades so the UI shows a clear empty state.
-    if selected_grade_norm in {'9', '10', '11', '12'}:
-        resp = {
-            'results': [],
-            'message': 'No results available for this grade.',
-            'selected_school': q_school,
-            'selected_grade': selected_grade_norm,
-        }
-        if debug_flag:
-            resp['allowed_grades'] = allowed_grades
-            try:
-                pacing_rows = _fetch_pacing_csv()
-            except Exception:
-                pacing_rows = []
-            sample_rows = []
-            for r in pacing_rows[:5]:
-                raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
-                sample_rows.append({
-                    'grade_level': raw_grade,
-                    'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
-                })
-            resp['sample_rows'] = sample_rows
-        return resp
-
     if schools_rows and q_school:
-        chosen_row = None
         if q_district:
             for r in schools_rows:
                 rd = _school_row_district(r)
@@ -778,6 +770,30 @@ def build_search(params: dict):
             )
             allowed_grades = _normalize_grade_tokens(str(grade_cell))
             resolved_curriculum = _school_row_curriculum(chosen_row)
+    # Short-circuit for any high-school grade selection or known high-school school row.
+    hs_tokens = {'9', '10', '11', '12'}
+    if selected_grade_norm in hs_tokens or (chosen_row and _is_high_school_row(chosen_row)):
+        resp = {
+            'results': [],
+            'message': 'Information not available for this grade at this school.',
+            'selected_school': q_school,
+            'selected_grade': selected_grade_norm
+        }
+        if debug_flag:
+            resp['allowed_grades'] = allowed_grades
+            try:
+                pacing_rows = _fetch_pacing_csv()
+            except Exception:
+                pacing_rows = []
+            sample_rows = []
+            for r in pacing_rows[:5]:
+                raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
+                sample_rows.append({
+                    'grade_level': raw_grade,
+                    'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
+                })
+            resp['sample_rows'] = sample_rows
+        return resp
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
     if q_grade and allowed_grades:
         if selected_grade_norm not in set(allowed_grades):
