@@ -92,21 +92,27 @@ def normalize_text(s):
     return (s or '').replace('’', "'").replace('“', '"').replace('”', '"').strip()
 
 def normalize_name(s: str) -> str:
-    return str(s or '').strip().lower()
+    """
+    Stable school-name normalization for exact matching across formatting differences.
+    Examples handled:
+    - Extra spaces
+    - Periods/commas/apostrophes
+    - Different dash characters
+    """
+    txt = str(s or '').strip().lower()
+    txt = txt.replace('’', "'").replace('–', '-').replace('—', '-')
+    # Replace non-alphanumeric runs with a single space, then collapse whitespace.
+    txt = re.sub(r"[^a-z0-9]+", " ", txt)
+    txt = re.sub(r"\s+", " ", txt).strip()
+    return txt
 
 
 def find_matching_school(selected_school: str, grades_by_school: dict[str, set[str]]) -> str | None:
     selected = normalize_name(selected_school)
     if not selected:
         return None
-    # Exact normalized match first
-    if selected in grades_by_school:
-        return selected
-    # Flexible contains match for minor formatting differences
-    for school_name in grades_by_school:
-        if selected in school_name or school_name in selected:
-            return school_name
-    return None
+    # Stable and predictable: exact match on normalized keys only.
+    return selected if selected in grades_by_school else None
 
 
 def _normalize_grade_token(token: str) -> str:
