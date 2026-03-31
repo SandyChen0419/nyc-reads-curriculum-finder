@@ -514,17 +514,10 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
     """
     if not cell:
         return []
-    txt = normalize_text(str(cell)).strip()
+    txt = str(cell).strip()
     if not txt:
         return []
     txt = txt.replace('–', '-').replace('—', '-')
-    txt = re.sub(r"\bPRE[\s-]*K\b", "PK", txt, flags=re.I)
-    txt = re.sub(r"\bKINDERGARTEN\b", "K", txt, flags=re.I)
-    txt = re.sub(r"\bOK\b", "K", txt, flags=re.I)
-    txt = re.sub(r"\bGRADES?\b", "", txt, flags=re.I)
-    txt = re.sub(r"\bGRADE\b", "", txt, flags=re.I)
-    txt = re.sub(r"(\d+)(ST|ND|RD|TH)\b", r"\1", txt, flags=re.I)
-    txt = re.sub(r"\s+", " ", txt).strip()
     out: list[str] = []
     def add(tok: str):
         t = tok.strip().upper()
@@ -541,10 +534,6 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
     for part in re.split(r"[,;/]+", txt):
         s = part.strip()
         if not s:
-            continue
-        if re.fullmatch(r"(PK|K|\d{1,2})(\s+(PK|K|\d{1,2}))+", s, flags=re.I):
-            for piece in re.split(r"\s+", s):
-                add(piece)
             continue
         if '-' in s:
             a, b = [x.strip().upper() for x in s.split('-', 1)]
@@ -736,10 +725,35 @@ def build_search(params: dict):
     # Compute allowed grades and resolve curriculum; allow district to be optional
     eff_district = q_district
     allowed_grades: list[str] = []
-    school_grade_raw = ''
     selected_grade_norm = _normalize_selected_grade(q_grade)
     norm_q_school = _normalize_lookup_text(q_school)
     norm_q_district = _normalize_lookup_text(q_district)
+
+    # Current curriculum database does not contain grade 9-12 results.
+    # Short-circuit these exact normalized grades so the UI shows a clear empty state.
+    if selected_grade_norm in {'9', '10', '11', '12'}:
+        resp = {
+            'results': [],
+            'message': 'No results available for this grade.',
+            'selected_school': q_school,
+            'selected_grade': selected_grade_norm,
+        }
+        if debug_flag:
+            resp['allowed_grades'] = allowed_grades
+            try:
+                pacing_rows = _fetch_pacing_csv()
+            except Exception:
+                pacing_rows = []
+            sample_rows = []
+            for r in pacing_rows[:5]:
+                raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
+                sample_rows.append({
+                    'grade_level': raw_grade,
+                    'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
+                })
+            resp['sample_rows'] = sample_rows
+        return resp
+
     if schools_rows and q_school:
         chosen_row = None
         if q_district:
@@ -762,7 +776,6 @@ def build_search(params: dict):
                 chosen_row.get('grade') or chosen_row.get('grades') or chosen_row.get('grades_served')
                 or chosen_row.get('grade_level') or chosen_row.get('grade_levels') or chosen_row.get('column_e') or ''
             )
-            school_grade_raw = str(grade_cell)
             allowed_grades = _normalize_grade_tokens(str(grade_cell))
             resolved_curriculum = _school_row_curriculum(chosen_row)
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
@@ -776,9 +789,6 @@ def build_search(params: dict):
             }
             if debug_flag:
                 resp['allowed_grades'] = allowed_grades
-                resp['school_grade_raw'] = school_grade_raw
-                resp['resolved_curriculum'] = resolved_curriculum
-                resp['effective_district'] = eff_district or q_district
                 # Show how pacing rows would parse for grade matching
                 try:
                     pacing_rows = _fetch_pacing_csv()
@@ -790,7 +800,6 @@ def build_search(params: dict):
                     sample_rows.append({
                         'grade_level': raw_grade,
                         'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
-                        'curriculum': (r.get(_normalize_header('Curriculum')) or r.get('curriculum') or ''),
                     })
                 resp['sample_rows'] = sample_rows
             return resp
@@ -860,9 +869,6 @@ def build_search(params: dict):
         out['selected_school'] = q_school
         out['selected_grade'] = selected_grade_norm
         out['allowed_grades'] = allowed_grades
-        out['school_grade_raw'] = school_grade_raw
-        out['resolved_curriculum'] = resolved_curriculum
-        out['effective_district'] = eff_district or q_district
         out['sample_rows'] = sample_rows
     return out
 
