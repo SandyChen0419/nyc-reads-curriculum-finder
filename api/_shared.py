@@ -525,7 +525,7 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
             return
         if t in ('PRE-K', 'PREK', 'P K', 'PK'):
             t = 'PK'
-        if t in ('KDG', 'KINDERGARTEN'):
+        if t in ('KDG', 'KINDERGARTEN', 'OK'):
             t = 'K'
         if t == 'PK' or t == 'K' or t.isdigit():
             if t not in out:
@@ -552,6 +552,11 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
                 continue
         add(s)
     return out
+
+
+def _normalize_selected_grade(value: str) -> str:
+    tokens = _normalize_grade_tokens(str(value or ''))
+    return tokens[0] if tokens else str(value or '').strip().upper()
 
 
 def build_meta(debug: bool = False):
@@ -720,6 +725,7 @@ def build_search(params: dict):
     # Compute allowed grades and resolve curriculum; allow district to be optional
     eff_district = q_district
     allowed_grades: list[str] = []
+    selected_grade_norm = _normalize_selected_grade(q_grade)
     norm_q_school = _normalize_lookup_text(q_school)
     norm_q_district = _normalize_lookup_text(q_district)
     if schools_rows and q_school:
@@ -748,30 +754,44 @@ def build_search(params: dict):
             resolved_curriculum = _school_row_curriculum(chosen_row)
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
     if q_grade and allowed_grades:
-        # Normalize selected grade token for comparison
-        sel = q_grade.upper()
-        if sel == 'KINDERGARTEN':
-            sel = 'K'
-        if sel in ('PRE-K', 'PREK', 'P K'):
-            sel = 'PK'
-        if sel not in set(allowed_grades):
+        if selected_grade_norm not in set(allowed_grades):
             resp = {
                 'results': [],
                 'message': 'Information not available for this grade at this school.',
                 'selected_school': q_school,
-                'selected_grade': sel
+                'selected_grade': selected_grade_norm
             }
             if debug_flag:
                 resp['allowed_grades'] = allowed_grades
+                # Show how pacing rows would parse for grade matching
+                try:
+                    pacing_rows = _fetch_pacing_csv()
+                except Exception:
+                    pacing_rows = []
+                sample_rows = []
+                for r in pacing_rows[:5]:
+                    raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
+                    sample_rows.append({
+                        'grade_level': raw_grade,
+                        'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
+                    })
+                resp['sample_rows'] = sample_rows
             return resp
     try:
         pacing_rows = _fetch_pacing_csv()
     except Exception:
         pacing_rows = []
     results = []
+    sample_rows = []
     for r in pacing_rows:
         curriculum = (r.get(_normalize_header('Curriculum')) or r.get('curriculum') or '').strip()
         grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '').strip()
+        row_grades = _normalize_grade_tokens(str(grade))
+        if debug_flag and len(sample_rows) < 5:
+            sample_rows.append({
+                'grade_level': grade,
+                'parsed_grades': row_grades,
+            })
         start_md = (r.get(_normalize_header('start_md')) or r.get('start_md') or r.get('start') or '').strip()
         end_md = (r.get(_normalize_header('end_md')) or r.get('end_md') or r.get('end') or '').strip()
         if not (start_md and end_md):
@@ -789,7 +809,7 @@ def build_search(params: dict):
             continue
         if resolved_curriculum and _normalize_lookup_text(curriculum) != _normalize_lookup_text(resolved_curriculum):
             continue
-        if q_grade and str(grade) != str(q_grade):
+        if q_grade and selected_grade_norm not in row_grades:
             continue
         if ref is not None:
             try:
@@ -819,8 +839,11 @@ def build_search(params: dict):
             item['dateRange'] = {'start': start_iso, 'end': end_iso}
         results.append(item)
     out = {'results': results}
-    if debug_flag and allowed_grades:
+    if debug_flag:
+        out['selected_school'] = q_school
+        out['selected_grade'] = selected_grade_norm
         out['allowed_grades'] = allowed_grades
+        out['sample_rows'] = sample_rows
     return out
 
 
