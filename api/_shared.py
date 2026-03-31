@@ -561,15 +561,17 @@ def _normalize_selected_grade(value: str) -> str:
 
 def _is_high_school_row(row: dict) -> bool:
     """
-    Treat a school as high school if the School Directories row indicates HS exactly
-    from the "Grade" column, or if its grade band tokens are exclusively 9-12.
+    Treat a school as high school if the School Directories row indicates HS exactly,
+    or if its grade band tokens are exclusively 9-12.
     Uses exact normalized checks only.
     """
     hs_tokens = {'9', '10', '11', '12'}
-    raw_grade = _normalize_lookup_text(
-        row.get(_normalize_header('Grade')) or row.get('grade') or ''
-    )
-    if raw_grade in {'high school', 'hs'}:
+    raw_grade = _normalize_lookup_text(row.get('grade') or '')
+    if raw_grade in {
+        'high school',
+        'hs',
+        'high schools (9-12) & combined',
+    }:
         return True
     band_tokens = _normalize_grade_tokens(
         str(row.get('grade_level') or row.get('grade_levels') or row.get('grade') or '')
