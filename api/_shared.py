@@ -744,35 +744,44 @@ def build_search(params: dict):
     eff_district = q_district
     allowed_grades: list[str] = []
     chosen_row = None
+    matching_rows: list[dict] = []
     selected_grade_norm = _normalize_selected_grade(q_grade)
     norm_q_school = _normalize_lookup_text(q_school)
     norm_q_district = _normalize_lookup_text(q_district)
     if schools_rows and q_school:
+        # First collect exact normalized matches on school name
+        school_matches = [
+            r for r in schools_rows
+            if _normalize_lookup_text(_school_row_name(r)) == norm_q_school
+        ]
+        # Narrow by district only when provided
         if q_district:
-            for r in schools_rows:
-                rd = _school_row_district(r)
-                rs = _school_row_name(r)
-                if _normalize_lookup_text(rd) == norm_q_district and _normalize_lookup_text(rs) == norm_q_school:
-                    chosen_row = r
-                    break
-        if not chosen_row:
-            # Fallback: first row matching school name exactly after normalization
-            for r in schools_rows:
-                rs = _school_row_name(r)
-                if _normalize_lookup_text(rs) == norm_q_school:
-                    chosen_row = r
-                    eff_district = _school_row_district(r)
-                    break
-        if chosen_row:
-            grade_cell = (
-                chosen_row.get('grade') or chosen_row.get('grades') or chosen_row.get('grades_served')
-                or chosen_row.get('grade_level') or chosen_row.get('grade_levels') or chosen_row.get('column_e') or ''
+            matching_rows = [
+                r for r in school_matches
+                if _normalize_lookup_text(_school_row_district(r)) == norm_q_district
+            ]
+        else:
+            matching_rows = school_matches
+        if matching_rows:
+            chosen_row = matching_rows[0]
+            eff_district = _school_row_district(chosen_row) or eff_district
+            # Union all allowed grades across exact matching rows
+            allowed_set = set()
+            for mr in matching_rows:
+                grade_cell = (
+                    mr.get('grade') or mr.get('grades') or mr.get('grades_served')
+                    or mr.get('grade_level') or mr.get('grade_levels') or mr.get('column_e') or ''
+                )
+                for gt in _normalize_grade_tokens(str(grade_cell)):
+                    allowed_set.add(gt)
+            allowed_grades = sorted(
+                list(allowed_set),
+                key=lambda g: (g != 'PK', g != 'K', int(g) if str(g).isdigit() else -1)
             )
-            allowed_grades = _normalize_grade_tokens(str(grade_cell))
             resolved_curriculum = _school_row_curriculum(chosen_row)
     # Short-circuit for any high-school grade selection or known high-school school row.
     hs_tokens = {'9', '10', '11', '12'}
-    if selected_grade_norm in hs_tokens or (chosen_row and _is_high_school_row(chosen_row)):
+    if selected_grade_norm in hs_tokens or any(_is_high_school_row(r) for r in matching_rows):
         resp = {
             'results': [],
             'message': 'Information not available for this grade at this school.',
@@ -795,7 +804,7 @@ def build_search(params: dict):
             resp['sample_rows'] = sample_rows
         return resp
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
-    if q_grade and allowed_grades:
+    if q_grade and matching_rows and allowed_grades:
         if selected_grade_norm not in set(allowed_grades):
             resp = {
                 'results': [],
