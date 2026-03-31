@@ -73,6 +73,19 @@ def _normalize_header(h):
     return re.sub(r"[\s/]+", "_", (h or "").strip().lower())
 
 
+def _normalize_lookup_text(value: str) -> str:
+    """
+    Normalize text for stable exact comparisons without fuzzy matching.
+    Keeps semantics intact but removes formatting differences:
+    - smart quotes -> ASCII via normalize_text()
+    - lowercase
+    - collapse internal whitespace
+    """
+    s = normalize_text(str(value or "")).lower()
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def _csv_from_text(text):
     reader = csv.reader(io.StringIO(text))
     rows = list(reader)
@@ -90,38 +103,6 @@ def _csv_from_text(text):
 
 def normalize_text(s):
     return (s or '').replace('’', "'").replace('“', '"').replace('”', '"').strip()
-
-def normalize_name(s: str) -> str:
-    """
-    Stable school-name normalization for exact matching across formatting differences.
-    Examples handled:
-    - Extra spaces
-    - Periods/commas/apostrophes
-    - Different dash characters
-    """
-    txt = str(s or '').strip().lower()
-    txt = txt.replace('’', "'").replace('–', '-').replace('—', '-')
-    # Replace non-alphanumeric runs with a single space, then collapse whitespace.
-    txt = re.sub(r"[^a-z0-9]+", " ", txt)
-    txt = re.sub(r"\s+", " ", txt).strip()
-    return txt
-
-
-def find_matching_school(selected_school: str, grades_by_school: dict[str, set[str]]) -> str | None:
-    selected = normalize_name(selected_school)
-    if not selected:
-        return None
-    # Stable and predictable: exact match on normalized keys only.
-    return selected if selected in grades_by_school else None
-
-
-def _normalize_grade_token(token: str) -> str:
-    t = str(token or '').strip().upper()
-    if t in ('PRE-K', 'PREK', 'P K', 'PK'):
-        return 'PK'
-    if t in ('KDG', 'KINDERGARTEN'):
-        return 'K'
-    return t
 
 
 def split_genres(s: str):
@@ -188,6 +169,37 @@ def _extract_title_and_url(cell_text: str):
         title = s[: um.start()].strip().strip(':-').strip() or url
         return (normalize_text(title), url)
     return (normalize_text(s), '')
+
+
+def _school_row_name(row: dict) -> str:
+    return (
+        row.get(_normalize_header('School Name'))
+        or row.get(_normalize_header('School Name - NYC DOE'))
+        or row.get('school_name')
+        or row.get('school')
+        or ''
+    ).strip()
+
+
+def _school_row_district(row: dict) -> str:
+    return (
+        row.get(_normalize_header('District #'))
+        or row.get('district_#')
+        or row.get('district')
+        or row.get(_normalize_header('District'))
+        or row.get('district_number')
+        or row.get('district_no')
+        or ''
+    ).strip()
+
+
+def _school_row_curriculum(row: dict) -> str:
+    return (
+        row.get(_normalize_header('Curriculum'))
+        or row.get('curriculum')
+        or row.get('literacy_curriculum')
+        or ''
+    ).strip()
 
 
 def _collect_reading_list_items_strict(row: dict):
@@ -507,49 +519,36 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         return []
     txt = txt.replace('–', '-').replace('—', '-')
     out: list[str] = []
-
     def add(tok: str):
-        t = _normalize_grade_token(tok)
+        t = tok.strip().upper()
         if not t:
             return
-        if t == 'PK' or t == 'K' or (t.isdigit() and 1 <= int(t) <= 12):
+        if t in ('PRE-K', 'PREK', 'P K', 'PK'):
+            t = 'PK'
+        if t in ('KDG', 'KINDERGARTEN'):
+            t = 'K'
+        if t == 'PK' or t == 'K' or t.isdigit():
             if t not in out:
                 out.append(t)
-
-    def rank(tok: str) -> int:
-        t = _normalize_grade_token(tok)
-        if t == 'PK':
-            return 0
-        if t == 'K':
-            return 1
-        if t.isdigit():
-            n = int(t)
-            if 1 <= n <= 12:
-                return n + 1
-        return -1
-
-    def unrank(n: int) -> str:
-        if n == 0:
-            return 'PK'
-        if n == 1:
-            return 'K'
-        return str(n - 1)
-
     # Split by common separators
     for part in re.split(r"[,;/]+", txt):
         s = part.strip()
         if not s:
             continue
         if '-' in s:
-            a, b = [x.strip() for x in s.split('-', 1)]
-            sa, sb = rank(a), rank(b)
+            a, b = [x.strip().upper() for x in s.split('-', 1)]
+            def to_num(x: str) -> int:
+                return 0 if x == 'PK' else (1 if x == 'K' else (int(x) if x.isdigit() else -1))
+            def from_num(n: int) -> str:
+                return 'PK' if n == 0 else ('K' if n == 1 else str(n))
+            sa, sb = to_num(a), to_num(b)
             if sa >= 0 and sb >= 0:
                 if sa <= sb:
                     rng = range(sa, sb + 1)
                 else:
                     rng = range(sb, sa + 1)
                 for n in rng:
-                    add(unrank(n))
+                    add(from_num(n))
                 continue
         add(s)
     return out
@@ -717,95 +716,54 @@ def build_search(params: dict):
         schools_rows = _fetch_schools_csv()
     except Exception:
         schools_rows = []
-    school_candidates = {
-        _normalize_header('School Name'), 'school_name',
-        _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
-        'school'
-    }
-    district_candidates = {
-        _normalize_header('District #'), 'district_#',
-        'district', _normalize_header('District'),
-        'district_number', 'district_no', 'district_id', 'districtid'
-    }
-    # Build normalized school mapping from School Directory before any curriculum filtering
-    grades_by_school: dict[str, set[str]] = {}
-    rows_by_school: dict[str, list[dict]] = {}
-    for r in schools_rows:
-        school = ''
-        for key in school_candidates:
-            val = r.get(key)
-            if val:
-                school = str(val).strip()
-                break
-        if not school:
-            continue
-        school_norm = normalize_name(school)
-        grade_cell = (
-            r.get(_normalize_header('Grade Level')) or r.get('grade_level')
-            or r.get('grade_levels') or r.get('grade') or r.get('grades')
-            or r.get('grades_served') or r.get('column_e') or ''
-        )
-        grades = set(_normalize_grade_tokens(str(grade_cell)))
-        grades_by_school.setdefault(school_norm, set()).update(grades)
-        rows_by_school.setdefault(school_norm, []).append(r)
-
     resolved_curriculum = ''
+    # Compute allowed grades and resolve curriculum; allow district to be optional
     eff_district = q_district
-    selected_school_norm = normalize_name(q_school)
-    selected_grade_norm = _normalize_grade_token(q_grade)
-    matched_school = find_matching_school(q_school, grades_by_school)
-    allowed_grades = sorted(list(grades_by_school.get(matched_school, set()) if matched_school else []), key=lambda g: (g not in ('PK', 'K'), int(g) if g.isdigit() else (-1 if g == 'PK' else 0)))
-
-    # Enforce school-grade validation BEFORE any pacing filtering
-    if q_school and q_grade:
-        if not matched_school or not allowed_grades:
-            resp = {
-                'results': [],
-                'message': 'School data not found.'
-            }
-            if debug_flag:
-                resp['selected_school'] = q_school
-                resp['normalized_school'] = selected_school_norm
-                resp['matched_school'] = matched_school
-                resp['allowed_grades'] = allowed_grades
-            return resp
-        if selected_grade_norm not in set(allowed_grades):
-            resp = {
-                'results': [],
-                'message': 'Information not available for this grade at this school.'
-            }
-            if debug_flag:
-                resp['selected_school'] = q_school
-                resp['normalized_school'] = selected_school_norm
-                resp['matched_school'] = matched_school
-                resp['selected_grade'] = selected_grade_norm
-                resp['allowed_grades'] = allowed_grades
-            return resp
-
-    # Resolve curriculum/district after validation
-    chosen_row = None
-    if matched_school and matched_school in rows_by_school:
-        candidate_rows = rows_by_school[matched_school]
+    allowed_grades: list[str] = []
+    norm_q_school = _normalize_lookup_text(q_school)
+    norm_q_district = _normalize_lookup_text(q_district)
+    if schools_rows and q_school:
+        chosen_row = None
         if q_district:
-            for r in candidate_rows:
-                rd = ''
-                for key in district_candidates:
-                    val = r.get(key)
-                    if val:
-                        rd = str(val).strip()
-                        break
-                if rd == q_district:
+            for r in schools_rows:
+                rd = _school_row_district(r)
+                rs = _school_row_name(r)
+                if _normalize_lookup_text(rd) == norm_q_district and _normalize_lookup_text(rs) == norm_q_school:
                     chosen_row = r
                     break
         if not chosen_row:
-            chosen_row = candidate_rows[0]
-        if chosen_row:
-            for key in district_candidates:
-                val = chosen_row.get(key)
-                if val:
-                    eff_district = str(val).strip()
+            # Fallback: first row matching school name exactly after normalization
+            for r in schools_rows:
+                rs = _school_row_name(r)
+                if _normalize_lookup_text(rs) == norm_q_school:
+                    chosen_row = r
+                    eff_district = _school_row_district(r)
                     break
-            resolved_curriculum = (chosen_row.get(_normalize_header('Curriculum')) or chosen_row.get('curriculum') or '').strip()
+        if chosen_row:
+            grade_cell = (
+                chosen_row.get('grade') or chosen_row.get('grades') or chosen_row.get('grades_served')
+                or chosen_row.get('grade_level') or chosen_row.get('grade_levels') or chosen_row.get('column_e') or ''
+            )
+            allowed_grades = _normalize_grade_tokens(str(grade_cell))
+            resolved_curriculum = _school_row_curriculum(chosen_row)
+    # If we confidently know this grade is not allowed for this school, short-circuit with empty results
+    if q_grade and allowed_grades:
+        # Normalize selected grade token for comparison
+        sel = q_grade.upper()
+        if sel == 'KINDERGARTEN':
+            sel = 'K'
+        if sel in ('PRE-K', 'PREK', 'P K'):
+            sel = 'PK'
+        if sel not in set(allowed_grades):
+            resp = {
+                'results': [],
+                'message': 'Information not available for this grade at this school.',
+                'selected_school': q_school,
+                'selected_grade': sel
+            }
+            if debug_flag:
+                resp['allowed_grades'] = allowed_grades
+            return resp
     try:
         pacing_rows = _fetch_pacing_csv()
     except Exception:
@@ -829,7 +787,7 @@ def build_search(params: dict):
         books_items = _collect_reading_list_items_strict(r)
         if not (curriculum and grade and start_md and end_md and module_number):
             continue
-        if resolved_curriculum and curriculum != resolved_curriculum:
+        if resolved_curriculum and _normalize_lookup_text(curriculum) != _normalize_lookup_text(resolved_curriculum):
             continue
         if q_grade and str(grade) != str(q_grade):
             continue
