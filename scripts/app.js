@@ -204,6 +204,38 @@
       .filter(Boolean);
     }
 
+  function isOstRoleSelected() {
+    return !!(els.role && String(els.role.value || '').trim() === 'OST/Afterschool Provider');
+  }
+
+  function renderOstUsageBlock() {
+    return (
+      '<div class="subcard ost-note-card section">' +
+        '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
+        '<p>' +
+          'If you are an Out-of-School Time provider, find your school and grade, identify the current module, and plan an aligned activity using the ' +
+          '<a href="https://drive.google.com/file/d/1KmOwO0uxwQs1jcuXuayQPD3o0v5Nd9C7/view" target="_blank" rel="noopener noreferrer">Knowledge-Building Activity Planning Protocol</a> ' +
+          'and the ' +
+          '<a href="https://cprl.law.columbia.edu/content/out-school-time-nyc-reads-toolkit" target="_blank" rel="noopener noreferrer">Out-of-School Time NYC Reads Toolkit</a>' +
+          ' - OST programs are a critical pillar in reinforcing learning beyond the school day by building knowledge and vocabulary through engaging, real-world experiences.' +
+        '</p>' +
+      '</div>'
+    );
+  }
+
+  function renderOstLibraryBlock() {
+    return (
+      '<div class="feedback-card ost-library-card">' +
+        '<p>' +
+          'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, and accessibility.' +
+        '</p>' +
+        '<p>' +
+          'The links direct to Sora, NYCPS’s digital library. While OST providers may not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can find many titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL).' +
+        '</p>' +
+      '</div>'
+    );
+  }
+
   function renderResultCard(model) {
     const { district, school, grade, curriculum, module_number, module_title, dateLabel, essential_question, text_genres, books } = model;
     const eqParagraph = '<p>' + escapeHTML(essential_question || '') + '</p>';
@@ -226,6 +258,7 @@
 
     return (
       '<div class="card section">' +
+        (isOstRoleSelected() ? renderOstUsageBlock() : '') +
         '<div class="grid-2" style="align-items:start;">' +
           '<div>' +
             '<h3>School Information</h3>' +
@@ -369,7 +402,7 @@
       text_genres: state.lastDetails.genres || [],
       books: state.lastDetails.books || [],
     });
-    els.resultsMount.innerHTML = html;
+    els.resultsMount.innerHTML = html + (isOstRoleSelected() ? renderOstLibraryBlock() : '');
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -449,6 +482,11 @@
     els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); });
     els.grade.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.date.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+    if (els.role) {
+      els.role.addEventListener('change', () => {
+        if (state.lastContext) renderResultFromState();
+      });
+    }
     els.clear.addEventListener('click', () => {
       setDefaultDate();
       els.district.value = '';
