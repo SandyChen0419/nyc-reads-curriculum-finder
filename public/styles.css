@@ -227,6 +227,29 @@ details.about-more:not([open]) > summary::after { content:" ↓"; }
 }
 .book-title a { color: #1D4ED8; text-decoration: underline; text-underline-offset: 2px; }
 
+.ost-note-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+}
+
+.ost-note-card p,
+.ost-library-card p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.ost-note-card a,
+.ost-library-card a {
+  color: #1D4ED8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ost-library-card {
+  margin-top: 20px;
+}
+
 .feedback-card {
   margin-top: 32px;
   padding: 20px;
