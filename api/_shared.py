@@ -424,10 +424,16 @@ def _normalize_school_directories(rows):
     schools_by_district = {}
     grades = set()
     curricula = set()
-    district_candidates = {
-        'district', 'district_#', 'district_number', 'district_no', 'district_id', 'districtid',
-        _normalize_header('District #'), _normalize_header('District')
-    }
+    district_candidates = [
+        _normalize_header('District #'),
+        'district_#',
+        'district_number',
+        'district_no',
+        'district_id',
+        'districtid',
+        _normalize_header('District'),
+        'district',
+    ]
     school_candidates = {
         _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
         'school_name', 'school'
@@ -530,27 +536,32 @@ def _normalize_grade_tokens(cell: str) -> list[str]:
         if t == 'PK' or t == 'K' or t.isdigit():
             if t not in out:
                 out.append(t)
-    # Split by common separators
-    for part in re.split(r"[,;/]+", txt):
-        s = part.strip()
-        if not s:
-            continue
-        if '-' in s:
-            a, b = [x.strip().upper() for x in s.split('-', 1)]
-            def to_num(x: str) -> int:
-                return 0 if x == 'PK' else (1 if x == 'K' else (int(x) if x.isdigit() else -1))
-            def from_num(n: int) -> str:
-                return 'PK' if n == 0 else ('K' if n == 1 else str(n))
-            sa, sb = to_num(a), to_num(b)
-            if sa >= 0 and sb >= 0:
-                if sa <= sb:
-                    rng = range(sa, sb + 1)
-                else:
-                    rng = range(sb, sa + 1)
-                for n in rng:
-                    add(from_num(n))
-                continue
-        add(s)
+    def to_num(x: str) -> int:
+        xu = x.strip().upper()
+        if xu in ('PRE-K', 'PREK', 'P K', 'PK'):
+            return 0
+        if xu in ('K', 'KDG', 'KINDERGARTEN', 'OK'):
+            return 1
+        return int(xu) if xu.isdigit() else -1
+    def from_num(n: int) -> str:
+        return 'PK' if n == 0 else ('K' if n == 1 else str(n))
+
+    # First, extract any embedded ranges anywhere in the string, e.g.
+    # "High Schools (9-12) & Combined" -> 9,10,11,12
+    for m in re.finditer(r'(PK|PRE-K|PREK|P K|K|OK|\d{1,2})\s*-\s*(PK|PRE-K|PREK|P K|K|OK|\d{1,2})', txt, flags=re.I):
+        sa = to_num(m.group(1))
+        sb = to_num(m.group(2))
+        if sa >= 0 and sb >= 0:
+            if sa <= sb:
+                rng = range(sa, sb + 1)
+            else:
+                rng = range(sb, sa + 1)
+            for n in rng:
+                add(from_num(n))
+
+    # Then extract standalone tokens, e.g. "PK/K", "9,10,11,12"
+    for tok in re.findall(r'(PK|PRE-K|PREK|P K|K|OK|\d{1,2})', txt, flags=re.I):
+        add(tok)
     return out
 
 
@@ -596,11 +607,16 @@ def build_meta(debug: bool = False):
     curricula_set = set()
     grades_set = set()
     # Robust header candidates for School Directories
-    district_candidates = {
-        _normalize_header('District #'), 'district_#',
-        'district', _normalize_header('District'),
-        'district_number', 'district_no', 'district_id', 'districtid'
-    }
+    district_candidates = [
+        _normalize_header('District #'),
+        'district_#',
+        'district_number',
+        'district_no',
+        'district_id',
+        'districtid',
+        _normalize_header('District'),
+        'district',
+    ]
     school_candidates = {
         _normalize_header('School Name'), 'school_name',
         _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
@@ -917,10 +933,16 @@ def build_school_grades():
         schools_rows = _fetch_schools_csv()
     except Exception:
         schools_rows = []
-    district_candidates = {
-        _normalize_header('District #'), 'district', 'district_number', 'district_no',
-        'district_id', 'districtid'
-    }
+    district_candidates = [
+        _normalize_header('District #'),
+        'district_#',
+        'district_number',
+        'district_no',
+        'district_id',
+        'districtid',
+        _normalize_header('District'),
+        'district',
+    ]
     school_candidates = {
         _normalize_header('School Name - NYC DOE'), 'school_name_-_nyc_doe', 'school_name_nyc_doe',
         'school_name', 'school'
