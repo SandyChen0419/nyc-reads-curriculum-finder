@@ -11,10 +11,13 @@
     schoolList: document.getElementById('schoolList'),
     clearSchool: document.getElementById('clearSchool'),
     grade: document.getElementById('filterGrade'),
+    role: document.getElementById('filterRole'),
     clear: document.getElementById('clearFilters'),
     search: document.getElementById('searchBtn'),
     filtersForm: document.getElementById('filtersForm'),
+    roleIntroMount: document.getElementById('roleIntroMount'),
     resultsMount: document.getElementById('resultsMount'),
+    roleOutroMount: document.getElementById('roleOutroMount'),
     resultsCount: document.getElementById('resultsCount'),
     cards: document.getElementById('cards'),
   };
@@ -25,6 +28,7 @@
     gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
     modules: [],
     activeIndex: 0,
+    selectedRole: '',
     lastContext: null,
     lastDetails: { eq: [], genres: [], books: [] },
   };
@@ -203,6 +207,71 @@
       .filter(Boolean);
     }
 
+  function currentRoleValue() {
+    const stateRole = String(state.selectedRole || '').trim();
+    if (stateRole) return stateRole;
+    if (!els.role) return '';
+    const rawValue = String(els.role.value || '').trim();
+    if (rawValue) return rawValue;
+    const idx = Number(els.role.selectedIndex);
+    const option = idx >= 0 ? els.role.options[idx] : null;
+    return option ? String(option.text || '').trim() : '';
+  }
+
+  function isOstRoleSelected() {
+    const role = currentRoleValue()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    return role.indexOf('ost') !== -1 && role.indexOf('afterschool') !== -1 && role.indexOf('provider') !== -1;
+  }
+
+  function renderOstUsageBlock() {
+    return (
+      '<div class="subcard ost-note-card section">' +
+        '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
+        '<p>' +
+          'If you are an Out-of-School Time provider, find your school and grade, identify the current module, and plan an aligned activity using the ' +
+          '<a href="https://drive.google.com/file/d/1KmOwO0uxwQs1jcuXuayQPD3o0v5Nd9C7/view" target="_blank" rel="noopener noreferrer">Knowledge-Building Activity Planning Protocol</a> ' +
+          'and the ' +
+          '<a href="https://cprl.law.columbia.edu/content/out-school-time-nyc-reads-toolkit" target="_blank" rel="noopener noreferrer">Out-of-School Time NYC Reads Toolkit</a>' +
+          ' - OST programs are a critical pillar in reinforcing learning beyond the school day by building knowledge and vocabulary through engaging, real-world experiences.' +
+        '</p>' +
+      '</div>'
+    );
+  }
+
+  function renderOstLibraryBlock() {
+    return (
+      '<div class="feedback-card ost-library-card">' +
+        '<p>' +
+          'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, and accessibility.' +
+        '</p>' +
+        '<p>' +
+          'The links direct to Sora, NYCPS’s digital library. While OST providers may not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can find many titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL).' +
+        '</p>' +
+      '</div>'
+    );
+  }
+
+  function clearRoleBlocks() {
+    if (els.roleIntroMount) els.roleIntroMount.innerHTML = '';
+    if (els.roleOutroMount) els.roleOutroMount.innerHTML = '';
+  }
+
+  function applyRoleBlocks(mainHtml) {
+    const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
+    const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
+    clearRoleBlocks();
+    if (els.roleIntroMount && els.roleOutroMount) {
+      els.roleIntroMount.innerHTML = introHtml;
+      els.resultsMount.innerHTML = mainHtml;
+      els.roleOutroMount.innerHTML = outroHtml;
+      return;
+    }
+    els.resultsMount.innerHTML = introHtml + mainHtml + outroHtml;
+  }
+
   function renderResultCard(model) {
     const { district, school, grade, curriculum, module_number, module_title, dateLabel, essential_question, text_genres, books } = model;
     const eqParagraph = '<p>' + escapeHTML(essential_question || '') + '</p>';
@@ -265,6 +334,7 @@
   function renderResults(items) {
     if (!els.resultsMount) return;
     if (!Array.isArray(items) || items.length === 0) {
+      clearRoleBlocks();
       els.resultsMount.innerHTML = '<div class="empty">No results. Try adjusting filters or date.</div>';
       return;
     }
@@ -368,7 +438,7 @@
       text_genres: state.lastDetails.genres || [],
       books: state.lastDetails.books || [],
     });
-    els.resultsMount.innerHTML = html;
+    applyRoleBlocks(html);
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -392,6 +462,7 @@
     const schoolValue = String(els.schoolInput.value || '').trim();
     if (schoolValue) params.set('school', schoolValue);
     if (els.grade.value) params.set('grade', els.grade.value);
+    if (els.role && els.role.value) params.set('role', els.role.value);
 
     const url = '/api/search' + (params.toString() ? ('?' + params.toString()) : '');
     try {
@@ -401,14 +472,10 @@
       if (!res.ok) throw new Error('Failed to search');
       const json = await res.json();
       console.log('[Search] API response', json);
-      const items = Array.isArray(json.results) ? json.results : [];
-      if (json.message && items.length === 0) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + escapeHTML(json.message) + '</div>';
-      } else {
-        renderResults(items);
-      }
+      renderResults(Array.isArray(json.results) ? json.results : []);
     } catch (e) {
       console.error('Failed to fetch /api/search', e);
+      clearRoleBlocks();
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Unable to load search results. Please try again.</div>';
     } finally {
       if (els.search) { els.search.disabled = false; els.search.textContent = 'Find Curriculum'; }
@@ -423,6 +490,8 @@
       const schoolVal = String(els.schoolInput.value || '').trim();
       const gradeVal = String(els.grade.value || '').trim();
       const dateVal = String(els.date.value || '').trim();
+      state.selectedRole = els.role ? String(els.role.value || '').trim() : '';
+      console.log('[Search] Selected role', currentRoleValue());
 
       // Validation (district optional)
       if (!schoolVal) {
@@ -452,12 +521,21 @@
     els.clearSchool.addEventListener('click', () => { els.schoolInput.value = ''; els.schoolInput.focus(); });
     els.grade.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     els.date.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
+    if (els.role) {
+      els.role.addEventListener('change', () => {
+        state.selectedRole = String(els.role.value || '').trim();
+        if (state.lastContext) renderResultFromState();
+      });
+    }
     els.clear.addEventListener('click', () => {
       setDefaultDate();
       els.district.value = '';
       els.grade.value = '';
+      if (els.role) els.role.value = '';
+      state.selectedRole = '';
       onDistrictChange();
       els.schoolInput.value = '';
+      clearRoleBlocks();
       if (els.resultsMount) els.resultsMount.innerHTML = '';
     });
     if (els.search) { els.search.addEventListener('click', (e) => { e.preventDefault(); runSearch(); }); }
