@@ -208,14 +208,22 @@
     }
 
   function currentRoleValue() {
-    if (state.selectedRole) return String(state.selectedRole).trim();
-    if (els.role) return String(els.role.value || '').trim();
-    return '';
+    const stateRole = String(state.selectedRole || '').trim();
+    if (stateRole) return stateRole;
+    if (!els.role) return '';
+    const rawValue = String(els.role.value || '').trim();
+    if (rawValue) return rawValue;
+    const idx = Number(els.role.selectedIndex);
+    const option = idx >= 0 ? els.role.options[idx] : null;
+    return option ? String(option.text || '').trim() : '';
   }
 
   function isOstRoleSelected() {
-    const role = currentRoleValue().toLowerCase();
-    return role === 'ost/afterschool provider' || role === 'ost / afterschool provider';
+    const role = currentRoleValue()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    return role.indexOf('ost') !== -1 && role.indexOf('afterschool') !== -1 && role.indexOf('provider') !== -1;
   }
 
   function renderOstUsageBlock() {
@@ -249,6 +257,19 @@
   function clearRoleBlocks() {
     if (els.roleIntroMount) els.roleIntroMount.innerHTML = '';
     if (els.roleOutroMount) els.roleOutroMount.innerHTML = '';
+  }
+
+  function applyRoleBlocks(mainHtml) {
+    const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
+    const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
+    clearRoleBlocks();
+    if (els.roleIntroMount && els.roleOutroMount) {
+      els.roleIntroMount.innerHTML = introHtml;
+      els.resultsMount.innerHTML = mainHtml;
+      els.roleOutroMount.innerHTML = outroHtml;
+      return;
+    }
+    els.resultsMount.innerHTML = introHtml + mainHtml + outroHtml;
   }
 
   function renderResultCard(model) {
@@ -417,16 +438,7 @@
       text_genres: state.lastDetails.genres || [],
       books: state.lastDetails.books || [],
     });
-    const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
-    const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
-    clearRoleBlocks();
-    if (els.roleIntroMount && els.roleOutroMount) {
-      els.roleIntroMount.innerHTML = introHtml;
-      els.resultsMount.innerHTML = html;
-      els.roleOutroMount.innerHTML = outroHtml;
-    } else {
-      els.resultsMount.innerHTML = introHtml + html + outroHtml;
-    }
+    applyRoleBlocks(html);
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -479,6 +491,7 @@
       const gradeVal = String(els.grade.value || '').trim();
       const dateVal = String(els.date.value || '').trim();
       state.selectedRole = els.role ? String(els.role.value || '').trim() : '';
+      console.log('[Search] Selected role', currentRoleValue());
 
       // Validation (district optional)
       if (!schoolVal) {
