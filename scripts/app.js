@@ -28,6 +28,7 @@
     gradesBySchool: {}, // key: "district|school" -> ['PK','K','1'...'12']
     modules: [],
     activeIndex: 0,
+    selectedRole: '',
     lastContext: null,
     lastDetails: { eq: [], genres: [], books: [] },
   };
@@ -206,8 +207,15 @@
       .filter(Boolean);
     }
 
+  function currentRoleValue() {
+    if (state.selectedRole) return String(state.selectedRole).trim();
+    if (els.role) return String(els.role.value || '').trim();
+    return '';
+  }
+
   function isOstRoleSelected() {
-    return !!(els.role && String(els.role.value || '').trim() === 'OST/Afterschool Provider');
+    const role = currentRoleValue().toLowerCase();
+    return role === 'ost/afterschool provider' || role === 'ost / afterschool provider';
   }
 
   function renderOstUsageBlock() {
@@ -409,13 +417,10 @@
       text_genres: state.lastDetails.genres || [],
       books: state.lastDetails.books || [],
     });
-    if (isOstRoleSelected()) {
-      if (els.roleIntroMount) els.roleIntroMount.innerHTML = renderOstUsageBlock();
-      if (els.roleOutroMount) els.roleOutroMount.innerHTML = renderOstLibraryBlock();
-    } else {
-      clearRoleBlocks();
-    }
-    els.resultsMount.innerHTML = html;
+    const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
+    const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
+    clearRoleBlocks();
+    els.resultsMount.innerHTML = introHtml + html + outroHtml;
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -467,6 +472,7 @@
       const schoolVal = String(els.schoolInput.value || '').trim();
       const gradeVal = String(els.grade.value || '').trim();
       const dateVal = String(els.date.value || '').trim();
+      state.selectedRole = els.role ? String(els.role.value || '').trim() : '';
 
       // Validation (district optional)
       if (!schoolVal) {
@@ -498,6 +504,7 @@
     els.date.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runSearch(); } });
     if (els.role) {
       els.role.addEventListener('change', () => {
+        state.selectedRole = String(els.role.value || '').trim();
         if (state.lastContext) renderResultFromState();
       });
     }
@@ -506,6 +513,7 @@
       els.district.value = '';
       els.grade.value = '';
       if (els.role) els.role.value = '';
+      state.selectedRole = '';
       onDistrictChange();
       els.schoolInput.value = '';
       clearRoleBlocks();
