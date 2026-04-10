@@ -420,7 +420,13 @@
     const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
     const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
     clearRoleBlocks();
-    els.resultsMount.innerHTML = introHtml + html + outroHtml;
+    if (els.roleIntroMount && els.roleOutroMount) {
+      els.roleIntroMount.innerHTML = introHtml;
+      els.resultsMount.innerHTML = html;
+      els.roleOutroMount.innerHTML = outroHtml;
+    } else {
+      els.resultsMount.innerHTML = introHtml + html + outroHtml;
+    }
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
