@@ -15,7 +15,9 @@
     clear: document.getElementById('clearFilters'),
     search: document.getElementById('searchBtn'),
     filtersForm: document.getElementById('filtersForm'),
+    roleIntroMount: document.getElementById('roleIntroMount'),
     resultsMount: document.getElementById('resultsMount'),
+    roleOutroMount: document.getElementById('roleOutroMount'),
     resultsCount: document.getElementById('resultsCount'),
     cards: document.getElementById('cards'),
   };
@@ -236,6 +238,11 @@
     );
   }
 
+  function clearRoleBlocks() {
+    if (els.roleIntroMount) els.roleIntroMount.innerHTML = '';
+    if (els.roleOutroMount) els.roleOutroMount.innerHTML = '';
+  }
+
   function renderResultCard(model) {
     const { district, school, grade, curriculum, module_number, module_title, dateLabel, essential_question, text_genres, books } = model;
     const eqParagraph = '<p>' + escapeHTML(essential_question || '') + '</p>';
@@ -258,7 +265,6 @@
 
     return (
       '<div class="card section">' +
-        (isOstRoleSelected() ? renderOstUsageBlock() : '') +
         '<div class="grid-2" style="align-items:start;">' +
           '<div>' +
             '<h3>School Information</h3>' +
@@ -299,6 +305,7 @@
   function renderResults(items) {
     if (!els.resultsMount) return;
     if (!Array.isArray(items) || items.length === 0) {
+      clearRoleBlocks();
       els.resultsMount.innerHTML = '<div class="empty">No results. Try adjusting filters or date.</div>';
       return;
     }
@@ -402,7 +409,13 @@
       text_genres: state.lastDetails.genres || [],
       books: state.lastDetails.books || [],
     });
-    els.resultsMount.innerHTML = html + (isOstRoleSelected() ? renderOstLibraryBlock() : '');
+    if (isOstRoleSelected()) {
+      if (els.roleIntroMount) els.roleIntroMount.innerHTML = renderOstUsageBlock();
+      if (els.roleOutroMount) els.roleOutroMount.innerHTML = renderOstLibraryBlock();
+    } else {
+      clearRoleBlocks();
+    }
+    els.resultsMount.innerHTML = html;
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -439,6 +452,7 @@
       renderResults(Array.isArray(json.results) ? json.results : []);
     } catch (e) {
       console.error('Failed to fetch /api/search', e);
+      clearRoleBlocks();
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Unable to load search results. Please try again.</div>';
     } finally {
       if (els.search) { els.search.disabled = false; els.search.textContent = 'Find Curriculum'; }
@@ -494,6 +508,7 @@
       if (els.role) els.role.value = '';
       onDistrictChange();
       els.schoolInput.value = '';
+      clearRoleBlocks();
       if (els.resultsMount) els.resultsMount.innerHTML = '';
     });
     if (els.search) { els.search.addEventListener('click', (e) => { e.preventDefault(); runSearch(); }); }
