@@ -7,6 +7,7 @@
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.py?__path=/api/$1" },
     { "src": "^/$", "dest": "/public/index.html" },
+    { "src": "/scripts/(.*)", "dest": "/public/scripts/$1" },
     { "src": "/(.*)", "dest": "/public/$1" }
   ]
 }
