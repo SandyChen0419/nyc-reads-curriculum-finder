@@ -3,6 +3,15 @@
   console.log('app loaded');
   console.log('district element', document.getElementById('filterDistrict'));
   console.log('grade element', document.getElementById('filterGrade'));
+  console.log('boot elements', {
+    district: !!document.getElementById('filterDistrict'),
+    schoolInput: !!document.getElementById('schoolInput'),
+    schoolList: !!document.getElementById('schoolList'),
+    grade: !!document.getElementById('filterGrade'),
+    date: !!document.getElementById('filterDate'),
+    role: !!document.getElementById('filterRole'),
+    resultsMount: !!document.getElementById('resultsMount'),
+  });
 
   const els = {
     date: document.getElementById('filterDate'),
@@ -34,15 +43,34 @@
   };
 
   function setOptions(selectEl, values, allLabel) {
+    if (!selectEl) {
+      console.warn('[Options] Missing select element for label', allLabel);
+      return;
+    }
     const opts = ['<option value="">' + allLabel + '</option>']
       .concat(values.map(v => '<option value="' + String(v).replaceAll('"', '&quot;') + '">' + v + '</option>'))
       .join('');
     selectEl.innerHTML = opts;
+    console.log('[Options] Rendered', {
+      target: selectEl.id || '(unknown)',
+      label: allLabel,
+      optionCount: selectEl.options ? selectEl.options.length : 0,
+      sample: Array.isArray(values) ? values.slice(0, 8) : [],
+    });
   }
 
   function setDatalistOptions(listEl, values) {
+    if (!listEl) {
+      console.warn('[Datalist] Missing datalist element');
+      return;
+    }
     const opts = values.map(v => '<option value="' + String(v).replaceAll('"', '&quot;') + '"></option>').join('');
     listEl.innerHTML = opts;
+    console.log('[Datalist] Rendered', {
+      target: listEl.id || '(unknown)',
+      optionCount: Array.isArray(values) ? values.length : 0,
+      sample: Array.isArray(values) ? values.slice(0, 8) : [],
+    });
   }
 
   function sortGradeTokens(tokens) {
@@ -70,14 +98,33 @@
 
   async function loadMeta() {
     try {
+      console.log('[Meta] Starting loadMeta');
       // Always insert defaults first so dropdowns are never empty
       if (els.district) setOptions(els.district, [], 'All Districts');
       if (els.grade) setOptions(els.grade, [], 'All Grades');
 
       const res = await fetch('/api/meta', { cache: 'no-cache' });
+      console.log('[Meta] Response received', {
+        ok: res.ok,
+        status: res.status,
+        contentType: res.headers.get('content-type'),
+        url: res.url,
+      });
       if (!res.ok) throw new Error('Failed to load meta');
       const json = await res.json();
       state.meta = json || {};
+      console.log('[Meta] Raw payload summary', {
+        keys: Object.keys(state.meta || {}),
+        districtsIsArray: Array.isArray(json && json.districts),
+        schoolsIsArray: Array.isArray(json && json.schools),
+        gradesIsArray: Array.isArray(json && json.grades),
+        districtsCount: Array.isArray(json && json.districts) ? json.districts.length : null,
+        schoolsCount: Array.isArray(json && json.schools) ? json.schools.length : null,
+        gradesCount: Array.isArray(json && json.grades) ? json.grades.length : null,
+        sampleDistricts: Array.isArray(json && json.districts) ? json.districts.slice(0, 8) : [],
+        sampleSchools: Array.isArray(json && json.schools) ? json.schools.slice(0, 3) : [],
+        sampleGrades: Array.isArray(json && json.grades) ? json.grades.slice(0, 8) : [],
+      });
 
       // Ensure we always have a global grade list as fallback
       if (!state.meta.grades || !Array.isArray(state.meta.grades) || state.meta.grades.length === 0) {
@@ -101,10 +148,20 @@
         });
       }
       state.schoolsByDistrict = byDistrict;
+      console.log('[Meta] schoolsByDistrict mapped', {
+        districtKeys: Object.keys(byDistrict).slice(0, 12),
+        districtCount: Object.keys(byDistrict).length,
+        sampleDistrictSchoolCounts: Object.keys(byDistrict).slice(0, 6).map(d => ({ district: d, count: byDistrict[d].length })),
+      });
 
       // Fetch grades per school mapping
       try {
         const res2 = await fetch('/api/school-grades', { cache: 'no-cache' });
+        console.log('[Meta] /api/school-grades response', {
+          ok: res2.ok,
+          status: res2.status,
+          contentType: res2.headers.get('content-type'),
+        });
         if (res2.ok) {
           const j2 = await res2.json();
           const map = {};
@@ -116,6 +173,10 @@
             }
           }
           state.gradesBySchool = map;
+          console.log('[Meta] gradesBySchool mapped', {
+            schoolCount: Object.keys(map).length,
+            sample: Object.entries(map).slice(0, 5),
+          });
         } else {
           console.warn('[Meta] /api/school-grades returned', res2.status);
         }
@@ -143,6 +204,13 @@
       setOptions(els.grade, state.meta.grades || defaultGradeTokens(), 'All Grades');
       const allSchools = Object.values(byDistrict).flat().sort((a, b) => a.localeCompare(b));
       setDatalistOptions(els.schoolList, allSchools);
+      console.log('[Meta] Final render summary', {
+        districtsRendered: districts.length,
+        schoolsRendered: allSchools.length,
+        gradesRendered: (state.meta.grades || []).length,
+        districtSelectOptions: els.district && els.district.options ? els.district.options.length : null,
+        gradeSelectOptions: els.grade && els.grade.options ? els.grade.options.length : null,
+      });
 
       console.log('[Meta] Loaded', {
         schoolsCount: Array.isArray(json.schools) ? json.schools.length : 0,
@@ -157,6 +225,10 @@
       }
     } catch (e) {
       console.error('Failed to fetch /api/meta', e);
+      console.error('[Meta] loadMeta failed details', {
+        message: e && e.message ? e.message : String(e),
+        stack: e && e.stack ? e.stack : null,
+      });
       // Ensure placeholders still render even if meta fails
       if (els.district) setOptions(els.district, [], 'All Districts');
       if (els.grade) setOptions(els.grade, [], 'All Grades');
@@ -172,6 +244,11 @@
     const sorted = Array.from(new Set((schools || []).map(s => String(s).trim()).filter(Boolean)))
       .sort((a, b) => a.localeCompare(b));
     setDatalistOptions(els.schoolList, sorted);
+    console.log('[District] Change handled', {
+      selectedDistrict: district,
+      matchedSchools: sorted.length,
+      sampleSchools: sorted.slice(0, 8),
+    });
     // Clear the current school input when district changes
     els.schoolInput.value = '';
     // Reset grades to global when district changed and school cleared
@@ -547,8 +624,15 @@
     if (els.district) setOptions(els.district, [], 'All Districts');
     if (els.grade) setOptions(els.grade, [], 'All Grades');
     setDefaultDate();
+    console.log('[Boot] Default date set', els.date ? els.date.value : null);
     await loadMeta();
+    console.log('[Boot] loadMeta complete', {
+      districtOptions: els.district && els.district.options ? els.district.options.length : null,
+      gradeOptions: els.grade && els.grade.options ? els.grade.options.length : null,
+      schoolOptions: els.schoolList ? els.schoolList.children.length : null,
+    });
     bindEvents();
+    console.log('[Boot] Event binding complete');
   }());
 })();
 
