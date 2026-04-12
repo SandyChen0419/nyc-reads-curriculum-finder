@@ -6,6 +6,9 @@
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/index.py?__path=/api/$1" },
+    { "src": "/main.js", "dest": "/public/main.js" },
+    { "src": "/styles.css", "dest": "/public/styles.css" },
+    { "src": "/nycreads-web-header.png", "dest": "/public/nycreads-web-header.png" },
     { "src": "^/$", "dest": "/public/index.html" },
     { "src": "/scripts/(.*)", "dest": "/public/scripts/$1" },
     { "src": "/(.*)", "dest": "/public/$1" }
