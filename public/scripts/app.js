@@ -346,7 +346,8 @@
   }
 
   function applyRoleBlocks(mainHtml) {
-    const introHtml = isOstRoleSelected() ? renderOstUsageBlock() : '';
+    const showRoleIntro = isOstRoleSelected() || isParentCaregiverRoleSelected();
+    const introHtml = showRoleIntro ? renderOstUsageBlock() : '';
     const outroHtml = isOstRoleSelected() ? renderOstLibraryBlock() : '';
     clearRoleBlocks();
     if (els.roleIntroMount && els.roleOutroMount) {
