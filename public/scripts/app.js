@@ -303,7 +303,25 @@
     return role.indexOf('ost') !== -1 && role.indexOf('afterschool') !== -1 && role.indexOf('provider') !== -1;
   }
 
+  function isParentCaregiverRoleSelected() {
+    const role = currentRoleValue()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    return role.indexOf('parent') !== -1 && role.indexOf('caregiver') !== -1;
+  }
+
   function renderOstUsageBlock() {
+    if (isParentCaregiverRoleSelected()) {
+      return (
+        '<div class="subcard ost-note-card section">' +
+          '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
+          '<p>' +
+            'The NYCPS Office of Library Services made these reading lists to help you support your child’s learning and interests. These are not the exact books your child reads in school, but they are great books to keep learning and reading, continuing at home. The books were chosen to match what students are learning, their interests, and to show many different people and experiences.' +
+          '</p>' +
+        '</div>'
+      );
+    }
     return (
       '<div class="subcard ost-note-card section">' +
         '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
@@ -364,8 +382,14 @@
           'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital library collection. While OST providers do not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can also find the titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL). To learn more about Sora, click <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">here</a>.' +
         '</div>'
       )
+      : isParentCaregiverRoleSelected()
+        ? (
+          '<div class="reading-list-intro">' +
+            'The links take you to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. Every NYC Public Schools student has free access to the Citywide Digital Library on Sora. It has eBooks, audiobooks, comics, and magazines for all students from Pre-K to 12th grade. If you have questions about logging into Sora, click here for <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2Awljhzo%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIyMjckajYwJGwwJGgw#/lessons/op3g0wQ8oC99f1Rznjn1BW7Q1zG5KrxA" target="_blank" rel="noopener noreferrer">Pre-K–3</a> or <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2A882ek0%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIzNTkkajYwJGwwJGgw#/lessons/aZ9uCcYTZkMiZcWXAehV5mBBPs6dDadq" target="_blank" rel="noopener noreferrer">Grades 4–12</a>. You can also find many of these books at the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL).' +
+          '</div>'
+        )
       : '';
-    const soraNote = isOstRoleSelected()
+    const soraNote = (isOstRoleSelected() || isParentCaregiverRoleSelected())
       ? ''
       : '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
 
