@@ -1,0 +1,10 @@
+{
+  "name": "nyc-reads-curriculum-finder",
+  "version": "1.0.0",
+  "description": "NYC Reads Curriculum Finder with Vercel Web Analytics",
+  "private": true,
+  "scripts": {},
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  }
+}
