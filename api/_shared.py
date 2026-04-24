@@ -86,6 +86,19 @@ def _normalize_lookup_text(value: str) -> str:
     return s
 
 
+def _normalize_curriculum_text(value: str) -> str:
+    """
+    Normalize curriculum labels for exact-but-stable comparisons across
+    small formatting changes between sheets, e.g.:
+    - "Wit & Wisdom" <-> "Wit&Wisdom"
+    - repeated internal whitespace
+    """
+    s = normalize_text(str(value or "")).lower()
+    s = re.sub(r"\s*&\s*", "&", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def _csv_from_text(text):
     reader = csv.reader(io.StringIO(text))
     rows = list(reader)
@@ -712,9 +725,9 @@ def build_modules(curriculum: str, grade: str):
         pacing_rows = []
     modules = []
     for r in pacing_rows:
-        r_curr = normalize_text((r.get(_normalize_header('Curriculum')) or r.get('curriculum') or '').strip())
+        r_curr = _normalize_curriculum_text((r.get(_normalize_header('Curriculum')) or r.get('curriculum') or '').strip())
         r_grade = normalize_text((r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '').strip())
-        if r_curr != normalize_text(curriculum) or str(r_grade) != str(grade):
+        if r_curr != _normalize_curriculum_text(curriculum) or str(r_grade) != str(grade):
             continue
         module_number = (r.get(_normalize_header('Module')) or r.get('module') or r.get('module_number') or '').strip()
         module_title = normalize_text((r.get(_normalize_header('Theme')) or r.get('module_title') or r.get('theme') or '').strip())
@@ -878,7 +891,7 @@ def build_search(params: dict):
         books_items = _collect_reading_list_items_strict(r)
         if not (curriculum and grade and start_md and end_md and module_number):
             continue
-        if resolved_curriculum and _normalize_lookup_text(curriculum) != _normalize_lookup_text(resolved_curriculum):
+        if resolved_curriculum and _normalize_curriculum_text(curriculum) != _normalize_curriculum_text(resolved_curriculum):
             continue
         if q_grade and selected_grade_norm not in row_grades:
             continue
