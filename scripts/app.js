@@ -584,14 +584,17 @@
     clearRoleBlocks();
     if (json && json.message_type === 'high_school_not_available') {
       const infoUrl = String((json && json.info_url) || 'https://www.schools.nyc.gov/learning/subjects/literacy/nyc-reads');
+      const learnMore = state.selectedLanguage === 'es'
+        ? 'Para obtener mas informacion sobre NYC Reads, haz clic <a href="' + infoUrl + '" target="_blank" rel="noopener noreferrer">aqui</a>.'
+        : 'To learn more about NYC Reads, click <a href="' + infoUrl + '" target="_blank" rel="noopener noreferrer">here</a>.';
       els.resultsMount.innerHTML =
         '<div class="empty">' +
-        'NYC Reads is currently focused on grades K–8. Curriculum information and reading lists for grades 9–12 are not yet available in this tool. ' +
-        'To learn more about NYC Reads, click <a href="' + infoUrl + '" target="_blank" rel="noopener noreferrer">here</a>.' +
+        t('highSchoolUnavailable') + ' ' +
+        learnMore +
         '</div>';
       return;
     }
-    els.resultsMount.innerHTML = '<div class="empty">' + escapeHTML((json && json.message) || 'No results. Try adjusting filters or date.') + '</div>';
+    els.resultsMount.innerHTML = '<div class="empty">' + escapeHTML((json && json.message) || t('noResults')) + '</div>';
   }
 
   function applyRoleBlocks(mainHtml) {
@@ -620,7 +623,7 @@
       const img = link && imgTag
         ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + imgTag + '</a>')
         : imgTag;
-      const fallback = '<div class="book-fallback"' + (cover ? '' : ' style="display:flex;"') + '>Book cover not available for now</div>';
+      const fallback = '<div class="book-fallback"' + (cover ? '' : ' style="display:flex;"') + '>' + (state.selectedLanguage === 'es' ? 'Portada no disponible por ahora' : 'Book cover not available for now') + '</div>';
       const titleHtml = link ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(title) + '</a>') : escapeHTML(title);
       return '<li class="book-item"><div class="book-thumb">' + img + fallback + '</div><div class="book-title">' + titleHtml + '</div></li>';
     }).join('');
@@ -629,67 +632,97 @@
     const readingListIntro = isOstRoleSelected()
       ? (
         '<div class="reading-list-intro">' +
-          'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning and engage readers. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, accessibility, and interests.' +
+          (
+            state.selectedLanguage === 'es'
+              ? 'La Oficina de Servicios Bibliotecarios de NYCPS preparo estas listas de lectura para apoyar la construccion de conocimiento mas alla del dia escolar. No son exactamente los libros usados en clase, sino textos recomendados para ampliar el aprendizaje e involucrar a los lectores. Estos textos ayudan a desarrollar conocimiento previo, vocabulario y comprension de temas clave que estudian los estudiantes. Los textos se eligieron por su alineacion con los temas del modulo, la representacion diversa y autentica, la calidad del texto, la accesibilidad y el interes estudiantil.'
+              : 'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning and engage readers. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, accessibility, and interests.'
+          ) +
           '<br><br>' +
-          'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. While OST providers do not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can also find the titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL). To learn more about Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>.' +
+          (
+            state.selectedLanguage === 'es'
+              ? 'Los enlaces llevan a la Biblioteca Digital de la Ciudad en <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, la coleccion digital de NYCPS. Aunque los proveedores OST no tienen acceso directo, estos enlaces se incluyen para que los estudiantes con quienes trabajas puedan acceder a los textos con sus cuentas de NYCPS. Si te interesa usar alguno de estos libros en tu programa, tambien puedes buscar los titulos en la Biblioteca Publica de Nueva York (NYPL), la Biblioteca Publica de Brooklyn (BPL) o la Biblioteca Publica de Queens (QPL). Para aprender mas sobre Sora, haz clic <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">aqui</a>.'
+              : 'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. While OST providers do not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can also find the titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL). To learn more about Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>.'
+          ) +
         '</div>'
       )
       : isParentCaregiverRoleSelected()
         ? (
           '<div class="reading-list-intro">' +
-            'The NYCPS Office of Library Services made these reading lists to help you support your child’s learning and interests. These are not the exact books your child reads in school, but they are great books to keep learning and reading, continuing at home. The books were chosen to match what students are learning, their interests, and to show many different people and experiences.' +
+            (
+              state.selectedLanguage === 'es'
+                ? 'La Oficina de Servicios Bibliotecarios de NYCPS preparo estas listas de lectura para ayudarte a apoyar el aprendizaje y los intereses de tu hijo. No son exactamente los libros que tu hijo lee en la escuela, pero son excelentes libros para seguir aprendiendo y leyendo en casa. Los libros fueron elegidos para conectar con lo que estudian los estudiantes, sus intereses y una variedad de personas y experiencias.'
+                : 'The NYCPS Office of Library Services made these reading lists to help you support your child’s learning and interests. These are not the exact books your child reads in school, but they are great books to keep learning and reading, continuing at home. The books were chosen to match what students are learning, their interests, and to show many different people and experiences.'
+            ) +
             '<br><br>' +
-            'The links take you to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. Every NYC Public Schools student has free access to the Citywide Digital Library on Sora. It has eBooks, audiobooks, comics, and magazines for all students from Pre-K to 12th grade. If you have questions about logging into Sora, click here for <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2Awljhzo%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIyMjckajYwJGwwJGgw#/lessons/op3g0wQ8oC99f1Rznjn1BW7Q1zG5KrxA" target="_blank" rel="noopener noreferrer">Pre-K–3</a> or <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2A882ek0%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIzNTkkajYwJGwwJGgw#/lessons/aZ9uCcYTZkMiZcWXAehV5mBBPs6dDadq" target="_blank" rel="noopener noreferrer">Grades 4–12</a>. You can also find many of these books at the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL).' +
+            (
+              state.selectedLanguage === 'es'
+                ? 'Los enlaces te llevan a la Biblioteca Digital de la Ciudad en <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, la coleccion digital de NYCPS. Cada estudiante de las Escuelas Publicas de NYC tiene acceso gratuito a la Biblioteca Digital de la Ciudad en Sora. Incluye libros electronicos, audiolibros, comics y revistas para estudiantes desde Pre-K hasta 12 grado. Si tienes preguntas sobre como iniciar sesion en Sora, haz clic aqui para <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2Awljhzo%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIyMjckajYwJGwwJGgw#/lessons/op3g0wQ8oC99f1Rznjn1BW7Q1zG5KrxA" target="_blank" rel="noopener noreferrer">Pre-K–3</a> o <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2A882ek0%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIzNTkkajYwJGwwJGgw#/lessons/aZ9uCcYTZkMiZcWXAehV5mBBPs6dDadq" target="_blank" rel="noopener noreferrer">Grados 4–12</a>. Tambien puedes encontrar muchos de estos libros en la Biblioteca Publica de Nueva York (NYPL), la Biblioteca Publica de Brooklyn (BPL) o la Biblioteca Publica de Queens (QPL).'
+                : 'The links take you to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. Every NYC Public Schools student has free access to the Citywide Digital Library on Sora. It has eBooks, audiobooks, comics, and magazines for all students from Pre-K to 12th grade. If you have questions about logging into Sora, click here for <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2Awljhzo%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIyMjckajYwJGwwJGgw#/lessons/op3g0wQ8oC99f1Rznjn1BW7Q1zG5KrxA" target="_blank" rel="noopener noreferrer">Pre-K–3</a> or <a href="https://rise.articulate.com/share/fcB-JQs3ozeuQWZHwEw4Az6upNkkYKb-?_gl=1%2A882ek0%2A_gcl_au%2ANjE5MjA1NTAzLjE3NzU1ODIxMjY.%2A_ga%2AMTA3MTMzNjUzLjE3NzU1ODIxMjA.%2A_ga_J2DYCDLK48%2AczE3NzU1ODIxMjYkbzEkZzEkdDE3NzU1ODIzNTkkajYwJGwwJGgw#/lessons/aZ9uCcYTZkMiZcWXAehV5mBBPs6dDadq" target="_blank" rel="noopener noreferrer">Grades 4–12</a>. You can also find many of these books at the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL).'
+            ) +
           '</div>'
         )
       : isSchoolLeaderTeacherRoleSelected()
         ? (
           '<div class="reading-list-intro">' +
-            'The NYCPS Office of Library Services curated these reading lists to support aligned, knowledge-rich instruction, as well as student interests; they are not the exact books used in class, but recommended texts to extend learning, curiosity, and wonderings. These texts can help build background knowledge, vocabulary, and understanding of key topics students are studying and care about. They were chosen based on alignment to module topics, diverse and authentic representation, text quality, and accessibility.' +
+            (
+              state.selectedLanguage === 'es'
+                ? 'La Oficina de Servicios Bibliotecarios de NYCPS preparo estas listas de lectura para apoyar una instruccion alineada y rica en conocimiento, junto con los intereses de los estudiantes. No son exactamente los libros usados en clase, sino textos recomendados para ampliar el aprendizaje, la curiosidad y las preguntas. Estos textos ayudan a desarrollar conocimiento previo, vocabulario y comprension de temas clave que estudian y valoran los estudiantes. Fueron elegidos por su alineacion con los temas del modulo, su representacion diversa y autentica, la calidad del texto y la accesibilidad.'
+                : 'The NYCPS Office of Library Services curated these reading lists to support aligned, knowledge-rich instruction, as well as student interests; they are not the exact books used in class, but recommended texts to extend learning, curiosity, and wonderings. These texts can help build background knowledge, vocabulary, and understanding of key topics students are studying and care about. They were chosen based on alignment to module topics, diverse and authentic representation, text quality, and accessibility.'
+            ) +
             '<br><br>' +
-            'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection, which all NYCPS students can access for free. To learn more about using Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>, and access <a href="https://rise.articulate.com/share/fN3jh1drp20vtC616toVONChj5Qm1veP?_ga=2.255888331.1789937731.1686316284-864601938.1686316284#/lessons/jy4Eps279hwoEQjn6rlV9F9u8DVJCzWP" target="_blank" rel="noopener noreferrer">teacher training resources</a> here.' +
+            (
+              state.selectedLanguage === 'es'
+                ? 'Los enlaces llevan a la Biblioteca Digital de la Ciudad en <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, la coleccion digital de NYCPS, a la que todos los estudiantes de NYCPS pueden acceder gratuitamente. Para aprender mas sobre como usar Sora, haz clic <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">aqui</a>, y accede a los <a href="https://rise.articulate.com/share/fN3jh1drp20vtC616toVONChj5Qm1veP?_ga=2.255888331.1789937731.1686316284-864601938.1686316284#/lessons/jy4Eps279hwoEQjn6rlV9F9u8DVJCzWP" target="_blank" rel="noopener noreferrer">recursos de capacitacion para docentes</a> aqui.'
+                : 'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection, which all NYCPS students can access for free. To learn more about using Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>, and access <a href="https://rise.articulate.com/share/fN3jh1drp20vtC616toVONChj5Qm1veP?_ga=2.255888331.1789937731.1686316284-864601938.1686316284#/lessons/jy4Eps279hwoEQjn6rlV9F9u8DVJCzWP" target="_blank" rel="noopener noreferrer">teacher training resources</a> here.'
+            ) +
           '</div>'
         )
       : '';
     const soraNote = (isOstRoleSelected() || isParentCaregiverRoleSelected() || isSchoolLeaderTeacherRoleSelected())
       ? ''
-      : '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.</div>';
+      : '<div class="sora-note" style="margin-top:8px;font-size:12px;color:#475569;">' +
+        (
+          state.selectedLanguage === 'es'
+            ? '¿Buscas titulos parecidos? Explora y toma prestado de la Biblioteca Digital de la Ciudad en <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.'
+            : 'Looking for similar titles? Browse and borrow from the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener">Sora</a>.'
+        ) +
+        '</div>';
 
     return (
       '<div class="card section">' +
         '<div class="grid-2" style="align-items:start;">' +
           '<div>' +
-            '<h3>School Information</h3>' +
-            '<p><b>School:</b> ' + escapeHTML(school) + '</p>' +
-            '<p><b>Grade:</b> ' + escapeHTML(grade) + '</p>' +
+            '<h3>' + t('schoolInformation') + '</h3>' +
+            '<p><b>' + t('schoolField') + '</b> ' + escapeHTML(school) + '</p>' +
+            '<p><b>' + t('gradeField') + '</b> ' + escapeHTML(grade) + '</p>' +
           '</div>' +
           '<div>' +
             '<h3>&nbsp;</h3>' +
-            '<p><b>District:</b> ' + escapeHTML(String(district)) + '</p>' +
-            '<p><b>Curriculum:</b> ' + escapeHTML(curriculum) + '</p>' +
+            '<p><b>' + t('districtField') + '</b> ' + escapeHTML(String(district)) + '</p>' +
+            '<p><b>' + t('curriculumField') + '</b> ' + escapeHTML(curriculum) + '</p>' +
           '</div>' +
         '</div>' +
 
         '<div class="subcard bg-blue section">' +
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">' +
-            '<h3 style="margin:0;">Module Information</h3>' +
+            '<h3 style="margin:0;">' + t('moduleInformation') + '</h3>' +
             '<div>' +
-              '<button id="btnPrev" class="btn btn-secondary">‹ Previous</button>' +
-              '<button id="btnNext" class="btn btn-secondary">Next ›</button>' +
+              '<button id="btnPrev" class="btn btn-secondary">' + t('prevBtn') + '</button>' +
+              '<button id="btnNext" class="btn btn-secondary">' + t('nextBtn') + '</button>' +
             '</div>' +
           '</div>' +
-          '<p><b>Module:</b> ' + escapeHTML(String(module_number || '')) + '</p>' +
-          '<p><b>Theme:</b> ' + escapeHTML(module_title || '—') + '</p>' +
-          '<p><b>Date Range:</b> ' + escapeHTML(dateLabel || '—') + '</p>' +
+          '<p><b>' + t('moduleField') + '</b> ' + escapeHTML(String(module_number || '')) + '</p>' +
+          '<p><b>' + t('themeField') + '</b> ' + escapeHTML(module_title || '—') + '</p>' +
+          '<p><b>' + t('dateRangeField') + '</b> ' + escapeHTML(dateLabel || '—') + '</p>' +
         '</div>' +
 
-        (eqParagraph ? ('<div class="subcard bg-green section"><h3>Essential Questions</h3>' + eqParagraph + '</div>') : '') +
+        (eqParagraph ? ('<div class="subcard bg-green section"><h3>' + t('essentialQuestions') + '</h3>' + eqParagraph + '</div>') : '') +
 
-        (genrePills ? ('<div class="subcard bg-yellow section"><h3>Text Genres</h3><div id="genres">' + genrePills + '</div></div>') : '') +
+        (genrePills ? ('<div class="subcard bg-yellow section"><h3>' + t('textGenres') + '</h3><div id="genres">' + genrePills + '</div></div>') : '') +
 
-        ('<div class="subcard bg-purple section"><h3>Reading List</h3>' + readingListIntro + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">Not Available</div>') + soraNote + '</div>') +
+        ('<div class="subcard bg-purple section"><h3>' + t('readingList') + '</h3>' + readingListIntro + (bookList ? ('<ul class="book-list">' + bookList + '</ul>') : '<div class="empty">' + t('noResultsGeneric') + '</div>') + soraNote + '</div>') +
 
-        '<div class="section" style="font-size:12px;color:#475569;">Data Source: <a href="https://sites.google.com/schools.nyc.gov/nycpslc/resources-for-core-instruction?utm_source" target="_blank" rel="noopener">NYC DOE Pacing Guides</a></div>' +
+        '<div class="section" style="font-size:12px;color:#475569;">' + t('dataSource') + ' <a href="https://sites.google.com/schools.nyc.gov/nycpslc/resources-for-core-instruction?utm_source" target="_blank" rel="noopener">NYC DOE Pacing Guides</a></div>' +
       '</div>'
     );
   }
@@ -698,7 +731,7 @@
     if (!els.resultsMount) return;
     if (!Array.isArray(items) || items.length === 0) {
       clearRoleBlocks();
-      els.resultsMount.innerHTML = '<div class="empty">No results. Try adjusting filters or date.</div>';
+      els.resultsMount.innerHTML = '<div class="empty">' + t('noResults') + '</div>';
       return;
     }
     const row = items[0];
@@ -830,7 +863,7 @@
     const url = '/api/search' + (params.toString() ? ('?' + params.toString()) : '');
     try {
       console.log('[Search] Request start', url);
-      if (els.search) { els.search.disabled = true; els.search.textContent = 'Searching…'; }
+      if (els.search) { els.search.disabled = true; els.search.textContent = t('searchingBtn'); }
       const res = await fetch(url, { cache: 'no-cache' });
       if (!res.ok) throw new Error('Failed to search');
       const json = await res.json();
@@ -844,9 +877,9 @@
     } catch (e) {
       console.error('Failed to fetch /api/search', e);
       clearRoleBlocks();
-      if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Unable to load search results. Please try again.</div>';
+      if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + t('searchError') + '</div>';
     } finally {
-      if (els.search) { els.search.disabled = false; els.search.textContent = 'Find Curriculum'; }
+      if (els.search) { els.search.disabled = false; els.search.textContent = t('searchBtn'); }
       console.log('[Search] Request end');
     }
   }
@@ -863,15 +896,18 @@
 
       // Validation (district optional)
       if (!schoolVal) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a school to search.</div>';
+        clearRoleBlocks();
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + t('schoolRequired') + '</div>';
         return;
       }
       if (!gradeVal) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a grade level to search.</div>';
+        clearRoleBlocks();
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + t('gradeRequired') + '</div>';
         return;
       }
       if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
-        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">Please select a date to search.</div>';
+        clearRoleBlocks();
+        if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + t('dateRequired') + '</div>';
         return;
       }
       // If district is blank, attempt to infer from meta.schools
@@ -895,6 +931,15 @@
         if (state.lastContext) renderResultFromState();
       });
     }
+    if (els.language) {
+      els.language.addEventListener('change', () => {
+        state.selectedLanguage = els.language.value || 'en';
+        window.localStorage.setItem('selectedLanguage', state.selectedLanguage);
+        applyLanguage();
+        recomputeGradeOptionsForSelection();
+        if (state.lastContext) renderResultFromState();
+      });
+    }
     els.clear.addEventListener('click', () => {
       setDefaultDate();
       els.district.value = '';
@@ -911,9 +956,12 @@
   }
 
   (async function boot() {
+    state.selectedLanguage = window.localStorage.getItem('selectedLanguage') || 'en';
+    if (els.language) els.language.value = state.selectedLanguage;
+    applyLanguage();
     // Initialize placeholders so dropdowns are visible immediately
-    if (els.district) setOptions(els.district, [], 'All Districts');
-    if (els.grade) setOptions(els.grade, [], 'All Grades');
+    if (els.district) setOptions(els.district, [], t('allDistricts'));
+    if (els.grade) setOptions(els.grade, [], t('allGrades'));
     setDefaultDate();
     console.log('[Boot] Default date set', els.date ? els.date.value : null);
     await loadMeta();
