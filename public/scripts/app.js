@@ -325,7 +325,7 @@
         '<div class="subcard ost-note-card section">' +
           '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
           '<p>' +
-            'The NYCPS Office of Library Services curated these reading lists to support aligned, knowledge-rich instruction, as well as student interests; they are not the exact books used in class, but recommended texts to extend learning, curiosity, and wonderings. These texts can help build background knowledge, vocabulary, and understanding of key topics students are studying and care about. They were chosen based on alignment to module topics, diverse and authentic representation, text quality, and accessibility.' +
+            'If you are a school leader or teacher, use the tool to identify grade-level learning across your school and share it with staff, afterschool partners, and families to support alignment. Use it to guide planning, strengthen connections between classroom instruction and enrichment, and ensure all partners are building knowledge and vocabulary around shared topics. Find more resources for family partnership and engagement <a href="https://cprl.law.columbia.edu/content/spread-word-nyc-reads-family-partnership-toolkit" target="_blank" rel="noopener noreferrer">here</a>.' +
           '</p>' +
         '</div>'
       );
