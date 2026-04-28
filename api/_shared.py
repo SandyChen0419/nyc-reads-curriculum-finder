@@ -605,6 +605,31 @@ def _is_high_school_row(row: dict) -> bool:
     return False
 
 
+def _high_school_unavailable_response(q_school: str, selected_grade_norm: str, debug_flag: bool, allowed_grades: list[str]):
+    resp = {
+        'results': [],
+        'message': 'NYC Reads is currently focused on grades K-8. Curriculum information and reading lists for grades 9-12 are not yet available in this tool. To learn more about NYC Reads, click here.',
+        'messageHtml': 'NYC Reads is currently focused on grades K-8. Curriculum information and reading lists for grades 9-12 are not yet available in this tool. To learn more about NYC Reads, click <a href="https://www.schools.nyc.gov/learning/subjects/literacy/nyc-reads" target="_blank" rel="noopener noreferrer">here</a>.',
+        'selected_school': q_school,
+        'selected_grade': selected_grade_norm
+    }
+    if debug_flag:
+        resp['allowed_grades'] = allowed_grades
+        try:
+            pacing_rows = _fetch_pacing_csv()
+        except Exception:
+            pacing_rows = []
+        sample_rows = []
+        for r in pacing_rows[:5]:
+            raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
+            sample_rows.append({
+                'grade_level': raw_grade,
+                'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
+            })
+        resp['sample_rows'] = sample_rows
+    return resp
+
+
 def build_meta(debug: bool = False):
     try:
         schools_rows = _fetch_schools_csv()
@@ -815,27 +840,7 @@ def build_search(params: dict):
     # Short-circuit for any high-school grade selection or known high-school school row.
     hs_tokens = {'9', '10', '11', '12'}
     if selected_grade_norm in hs_tokens or any(_is_high_school_row(r) for r in matching_rows):
-        resp = {
-            'results': [],
-            'message': 'Information not available for this grade at this school.',
-            'selected_school': q_school,
-            'selected_grade': selected_grade_norm
-        }
-        if debug_flag:
-            resp['allowed_grades'] = allowed_grades
-            try:
-                pacing_rows = _fetch_pacing_csv()
-            except Exception:
-                pacing_rows = []
-            sample_rows = []
-            for r in pacing_rows[:5]:
-                raw_grade = (r.get(_normalize_header('Grade Level')) or r.get('grade') or r.get('grade_level') or '')
-                sample_rows.append({
-                    'grade_level': raw_grade,
-                    'parsed_grades': _normalize_grade_tokens(str(raw_grade)),
-                })
-            resp['sample_rows'] = sample_rows
-        return resp
+        return _high_school_unavailable_response(q_school, selected_grade_norm, debug_flag, allowed_grades)
     # If we confidently know this grade is not allowed for this school, short-circuit with empty results
     if q_grade and matching_rows and allowed_grades:
         if selected_grade_norm not in set(allowed_grades):
