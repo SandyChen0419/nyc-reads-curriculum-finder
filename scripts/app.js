@@ -222,26 +222,6 @@
     els.date.value = yyyy + '-' + mm + '-' + dd;
   }
 
-  function getDistrictValues() {
-    const districtsFromMeta = Array.isArray(state.meta && state.meta.districts) ? state.meta.districts : [];
-    const numericSorted = Array.from(new Set(districtsFromMeta))
-      .map(d => Number(String(d).trim()))
-      .filter(n => !Number.isNaN(n))
-      .sort((a, b) => a - b)
-      .map(n => String(n));
-    if (numericSorted.length) return numericSorted;
-    const keys = Object.keys(state.schoolsByDistrict || {});
-    return Array.from(new Set(keys))
-      .map(d => Number(String(d).trim()))
-      .filter(n => !Number.isNaN(n))
-      .sort((a, b) => a - b)
-      .map(n => String(n));
-  }
-
-  function getAllSchoolValues() {
-    return Object.values(state.schoolsByDistrict || {}).flat().sort((a, b) => a.localeCompare(b));
-  }
-
   function updateRoleOptions() {
     if (!els.role) return;
     const selected = String(els.role.value || '').trim();
@@ -255,21 +235,6 @@
       option.text = optionLabels[option.value] || option.value;
     });
     els.role.value = selected;
-  }
-
-  function renderFilterControls() {
-    const selectedDistrict = els.district ? String(els.district.value || '').trim() : '';
-    const selectedGrade = els.grade ? String(els.grade.value || '').trim() : '';
-    const districts = getDistrictValues();
-    const grades = (state.meta && Array.isArray(state.meta.grades) && state.meta.grades.length)
-      ? state.meta.grades
-      : defaultGradeTokens();
-    setOptions(els.district, districts, t('allDistricts'));
-    setOptions(els.grade, grades, t('allGrades'));
-    setDatalistOptions(els.schoolList, getAllSchoolValues());
-    if (els.district && selectedDistrict) els.district.value = selectedDistrict;
-    if (els.grade && selectedGrade) els.grade.value = selectedGrade;
-    updateRoleOptions();
   }
 
   function applyLanguage() {
@@ -310,15 +275,21 @@
         option.text = labels[option.value] || option.value;
       });
     }
-    renderFilterControls();
+    if (els.district && els.district.options && els.district.options.length) {
+      els.district.options[0].text = t('allDistricts');
+    }
+    if (els.grade && els.grade.options && els.grade.options.length) {
+      els.grade.options[0].text = t('allGrades');
+    }
+    updateRoleOptions();
   }
 
   async function loadMeta() {
     try {
       console.log('[Meta] Starting loadMeta');
       // Always insert defaults first so dropdowns are never empty
-      if (els.district) setOptions(els.district, [], t('allDistricts'));
-      if (els.grade) setOptions(els.grade, [], t('allGrades'));
+      if (els.district) setOptions(els.district, [], 'All Districts');
+      if (els.grade) setOptions(els.grade, [], 'All Grades');
 
       const res = await fetch('/api/meta', { cache: 'no-cache' });
       console.log('[Meta] Response received', {
@@ -401,9 +372,27 @@
         console.warn('[Meta] Failed to fetch /api/school-grades', e);
       }
 
-      const districts = getDistrictValues();
-      const allSchools = getAllSchoolValues();
-      renderFilterControls();
+      // Sort districts numerically, render as strings; fallback from schoolsByDistrict keys
+      const districtsFromMeta = Array.isArray(json.districts) ? json.districts : [];
+      const numericSorted = Array.from(new Set(districtsFromMeta))
+        .map(d => Number(String(d).trim()))
+        .filter(n => !Number.isNaN(n))
+        .sort((a, b) => a - b)
+        .map(n => String(n));
+      let districts = numericSorted;
+      if (!districts.length) {
+        const keys = Object.keys(byDistrict || {});
+        districts = Array.from(new Set(keys))
+          .map(d => Number(String(d).trim()))
+          .filter(n => !Number.isNaN(n))
+          .sort((a, b) => a - b)
+          .map(n => String(n));
+      }
+      setOptions(els.district, districts, 'All Districts');
+      setOptions(els.grade, state.meta.grades || defaultGradeTokens(), 'All Grades');
+      const allSchools = Object.values(byDistrict).flat().sort((a, b) => a.localeCompare(b));
+      setDatalistOptions(els.schoolList, allSchools);
+      applyLanguage();
       console.log('[Meta] Final render summary', {
         districtsRendered: districts.length,
         schoolsRendered: allSchools.length,
@@ -430,8 +419,8 @@
         stack: e && e.stack ? e.stack : null,
       });
       // Ensure placeholders still render even if meta fails
-      if (els.district) setOptions(els.district, [], t('allDistricts'));
-      if (els.grade) setOptions(els.grade, [], t('allGrades'));
+      if (els.district) setOptions(els.district, [], 'All Districts');
+      if (els.grade) setOptions(els.grade, [], 'All Grades');
       if (els.resultsMount) els.resultsMount.innerHTML = '<div class="empty">' + t('noDataMeta') + '</div>';
     }
   }
@@ -452,7 +441,8 @@
     // Clear the current school input when district changes
     els.schoolInput.value = '';
     // Reset grades to global when district changed and school cleared
-    if (state.meta) setOptions(els.grade, state.meta.grades || defaultGradeTokens(), t('allGrades'));
+    if (state.meta) setOptions(els.grade, state.meta.grades || defaultGradeTokens(), 'All Grades');
+    applyLanguage();
   }
 
   function recomputeGradeOptionsForSelection() {
@@ -463,7 +453,8 @@
       ? state.gradesBySchool[key]
       : ((state.meta && state.meta.grades && state.meta.grades.length) ? state.meta.grades : defaultGradeTokens());
     const allowedSorted = sortGradeTokens(allowed);
-    setOptions(els.grade, allowedSorted, t('allGrades'));
+    setOptions(els.grade, allowedSorted, 'All Grades');
+    applyLanguage();
     // If current selection is not allowed, reset to All
     const cur = String(els.grade.value || '').trim();
     if (cur && allowedSorted.indexOf(cur) === -1) {
@@ -960,11 +951,13 @@
     if (els.language) els.language.value = state.selectedLanguage;
     applyLanguage();
     // Initialize placeholders so dropdowns are visible immediately
-    if (els.district) setOptions(els.district, [], t('allDistricts'));
-    if (els.grade) setOptions(els.grade, [], t('allGrades'));
+    if (els.district) setOptions(els.district, [], 'All Districts');
+    if (els.grade) setOptions(els.grade, [], 'All Grades');
+    applyLanguage();
     setDefaultDate();
     console.log('[Boot] Default date set', els.date ? els.date.value : null);
     await loadMeta();
+    applyLanguage();
     console.log('[Boot] loadMeta complete', {
       districtOptions: els.district && els.district.options ? els.district.options.length : null,
       gradeOptions: els.grade && els.grade.options ? els.grade.options.length : null,
