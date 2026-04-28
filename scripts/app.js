@@ -190,8 +190,9 @@
       console.warn('[Options] Missing select element for label', allLabel);
       return;
     }
+    const escapeAttr = value => String(value).split('"').join('&quot;');
     const opts = ['<option value="">' + allLabel + '</option>']
-      .concat(values.map(v => '<option value="' + String(v).replaceAll('"', '&quot;') + '">' + v + '</option>'))
+      .concat(values.map(v => '<option value="' + escapeAttr(v) + '">' + v + '</option>'))
       .join('');
     selectEl.innerHTML = opts;
     console.log('[Options] Rendered', {
@@ -207,7 +208,8 @@
       console.warn('[Datalist] Missing datalist element');
       return;
     }
-    const opts = values.map(v => '<option value="' + String(v).replaceAll('"', '&quot;') + '"></option>').join('');
+    const escapeAttr = value => String(value).split('"').join('&quot;');
+    const opts = values.map(v => '<option value="' + escapeAttr(v) + '"></option>').join('');
     listEl.innerHTML = opts;
     console.log('[Datalist] Rendered', {
       target: listEl.id || '(unknown)',
@@ -289,6 +291,18 @@
     updateRoleOptions();
   }
 
+  function updateFirstOptionLabel(selectEl, label) {
+    if (!selectEl || !selectEl.options || !selectEl.options.length) return;
+    if (String(selectEl.options[0].value || '') !== '') return;
+    selectEl.options[0].text = label;
+  }
+
+  function updateTranslatedFilterLabels() {
+    updateFirstOptionLabel(els.district, t('allDistricts'));
+    updateFirstOptionLabel(els.grade, t('allGrades'));
+    updateRoleOptions();
+  }
+
   function applyLanguage() {
     document.documentElement.lang = state.selectedLanguage || 'en';
     const setText = (id, value) => {
@@ -327,7 +341,7 @@
         option.text = labels[option.value] || option.value;
       });
     }
-    renderFilterControls();
+    updateTranslatedFilterLabels();
   }
 
   async function loadMeta() {
