@@ -12,8 +12,8 @@
         <div class="hero-frame">
           <img class="hero-img" src="/nycreads-web-header.png" alt="NYC Reads header">
           <div class="hero-overlay">
-            <h1 class="hero-title">NYC Reads Curriculum Finder</h1>
-            <p class="hero-subtitle">Discover curriculum, themes, and reading materials for NYC schools</p>
+            <h1 class="hero-title" id="heroTitle">NYC Reads Curriculum Finder</h1>
+            <p class="hero-subtitle" id="heroSubtitle">Discover curriculum, themes, and reading materials for NYC schools</p>
           </div>
         </div>
       </div>
@@ -23,15 +23,15 @@
       <div class="container">
         <div class="card about-card">
           <div class="card-head">
-            <h2>About This Tool</h2>
+            <h2 id="aboutTitle">About This Tool</h2>
           </div>
 
-          <p class="about-intro">
+          <p class="about-intro" id="aboutIntro">
             This curriculum search tool helps identify exactly what students are learning in literacy at a given school — including the curriculum, current module, essential questions, and book lists.
           </p>
 
-          <div class="info-note">
-            <strong>Disclaimer:</strong> This tool is intended to provide general information about district and school curriculum implementation. Timelines and materials may vary by school or classroom. For the most accurate and up-to-date information, please contact your school directly.
+          <div class="info-note" id="disclaimerNote">
+            <strong id="disclaimerLabel">Disclaimer:</strong> <span id="disclaimerText">This tool is intended to provide general information about district and school curriculum implementation. Timelines and materials may vary by school or classroom. For the most accurate and up-to-date information, please contact your school directly.</span>
           </div>
         </div>
       </div>
@@ -39,15 +39,15 @@
 
     <main class="container">
       <section id="filters" class="card section" aria-label="Filters">
-        <h2>Find Your Curriculum</h2>
+        <h2 id="filtersTitle">Find Your Curriculum</h2>
         <form id="filtersForm" class="grid-2" style="align-items:end;">
           <div class="filter">
-            <label for="filterDistrict">District</label>
+            <label for="filterDistrict" id="districtLabel">District</label>
             <select id="filterDistrict"></select>
           </div>
 
           <div class="filter">
-            <label for="schoolInput">School</label>
+            <label for="schoolInput" id="schoolLabel">School</label>
             <div class="typeahead">
               <input id="schoolInput" list="schoolList" placeholder="Type to search schools…" />
               <button id="clearSchool" type="button" class="btn btn-secondary" aria-label="Clear school">×</button>
@@ -56,22 +56,30 @@
           </div>
 
           <div class="filter">
-            <label for="filterGrade">Grade Level</label>
+            <label for="filterGrade" id="gradeLabel">Grade Level</label>
             <select id="filterGrade"></select>
           </div>
 
           <div class="filter">
-            <label for="filterDate">Date <span class="hint">(We’ll find the curriculum module for this date)</span></label>
+            <label for="filterDate" id="dateLabel">Date <span class="hint" id="dateHint">(We’ll find the curriculum module for this date)</span></label>
             <input type="date" id="filterDate" />
           </div>
 
           <div class="filter">
-            <label for="filterRole">Role</label>
+            <label for="filterRole" id="roleLabel">Role</label>
             <select id="filterRole">
               <option value="">All Roles</option>
               <option value="OST/Afterschool Provider">OST/Afterschool Provider</option>
               <option value="Parent or Caregiver">Parent or Caregiver</option>
               <option value="School Leader or Teacher">School Leader or Teacher</option>
+            </select>
+          </div>
+
+          <div class="filter">
+            <label for="languageSelect" id="languageLabel">Language</label>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="es">Espanol</option>
             </select>
           </div>
 
@@ -85,7 +93,7 @@
       <div class="divider" role="separator" aria-hidden="true"></div>
 
       <section id="results" class="section" aria-label="Curriculum Information">
-        <h2>Curriculum Information</h2>
+        <h2 id="resultsTitle">Curriculum Information</h2>
         <div id="roleIntroMount"></div>
         <div id="resultsMount"></div>
         <div id="roleOutroMount"></div>
@@ -93,8 +101,8 @@
 
       <section class="section" aria-label="Feedback">
         <div class="feedback-card">
-          <h3>Help Us Improve</h3>
-          <p>
+          <h3 id="feedbackTitle">Help Us Improve</h3>
+          <p id="feedbackPrompt">
             Is your school missing or something not quite right?
           </p>
           <a
@@ -102,10 +110,11 @@
             target="_blank"
             rel="noopener noreferrer"
             class="btn btn-primary"
+            id="feedbackButton"
           >
             Submit Feedback Form →
           </a>
-          <p class="feedback-note">
+          <p class="feedback-note" id="feedbackNote">
             We review submissions regularly and use them to improve the tool.
           </p>
         </div>
@@ -113,17 +122,12 @@
     </main>
 
     <noscript>
-      <div class="container" style="margin-top: 1rem; color: #b00020">
+      <div class="container" style="margin-top: 1rem; color: #b00020" id="noscriptMessage">
         This site requires JavaScript to function. Please enable JavaScript in your browser.
       </div>
     </noscript>
 
-    <script src="/scripts/app.js?v=20260410-ost-role-2" defer></script>
+    <script src="/main.js?v=20260412-dropdown-fix" defer></script>
   </body>
   </html>
 
-<script>
-  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-</script>
-<script defer src="/<unique-path>/script.js"></script>
-<script src="/main.js?v=20260412-dropdown-fix" defer></script>
