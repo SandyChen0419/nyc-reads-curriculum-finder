@@ -369,6 +369,21 @@
     if (els.roleOutroMount) els.roleOutroMount.innerHTML = '';
   }
 
+  function renderEmptyMessageFromResponse(json) {
+    if (!els.resultsMount) return;
+    clearRoleBlocks();
+    if (json && json.message_type === 'high_school_not_available') {
+      const infoUrl = String((json && json.info_url) || 'https://www.schools.nyc.gov/learning/subjects/literacy/nyc-reads');
+      els.resultsMount.innerHTML =
+        '<div class="empty">' +
+        'NYC Reads is currently focused on grades K–8. Curriculum information and reading lists for grades 9–12 are not yet available in this tool. ' +
+        'To learn more about NYC Reads, click <a href="' + infoUrl + '" target="_blank" rel="noopener noreferrer">here</a>.' +
+        '</div>';
+      return;
+    }
+    els.resultsMount.innerHTML = '<div class="empty">' + escapeHTML((json && json.message) || 'No results. Try adjusting filters or date.') + '</div>';
+  }
+
   function applyRoleBlocks(mainHtml) {
     const showRoleIntro = isOstRoleSelected() || isParentCaregiverRoleSelected() || isSchoolLeaderTeacherRoleSelected();
     const introHtml = showRoleIntro ? renderOstUsageBlock() : '';
@@ -611,11 +626,8 @@
       const json = await res.json();
       console.log('[Search] API response', json);
       const items = Array.isArray(json.results) ? json.results : [];
-      if (items.length === 0 && (json.message || json.messageHtml)) {
-        clearRoleBlocks();
-        if (els.resultsMount) {
-          els.resultsMount.innerHTML = '<div class="empty">' + (json.messageHtml || escapeHTML(json.message || 'No results.')) + '</div>';
-        }
+      if (items.length === 0 && json && json.message) {
+        renderEmptyMessageFromResponse(json);
       } else {
         renderResults(items);
       }
