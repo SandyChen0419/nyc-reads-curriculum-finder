@@ -335,8 +335,14 @@
         '<div class="subcard ost-note-card section">' +
           '<h3>How to Use the NYC Reads Curriculum Finder</h3>' +
           '<p>' +
-            'The NYCPS Office of Library Services made these reading lists to help you support your child’s learning and interests. These are not the exact books your child reads in school, but they are great books to keep learning and reading, continuing at home. The books were chosen to match what students are learning, their interests, and to show many different people and experiences.' +
+            'If you are a parent or caregiver, look up your child’s grade and see what they are learning about. You can:' +
           '</p>' +
+          '<ul class="role-guidance-list">' +
+            '<li>Read a book together on that topic using Sora (NYCPS’s digital library)</li>' +
+            '<li>Ask questions about the topic like, “What did you learn?” “What do you want to know more about?”</li>' +
+            '<li>Talk about the topic during your day (for example, notice plants on a walk if they are learning about trees)</li>' +
+            '<li>Find ways to learn more (watch a short video, visit the library, or look at pictures together)</li>' +
+          '</ul>' +
         '</div>'
       );
     }
