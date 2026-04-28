@@ -249,6 +249,17 @@ details.about-more:not([open]) > summary::after { content:" ↓"; }
   line-height: 1.6;
 }
 
+.role-guidance-list {
+  margin: 10px 0 0 20px;
+  padding: 0;
+  color: #334155;
+  line-height: 1.6;
+}
+
+.role-guidance-list li + li {
+  margin-top: 6px;
+}
+
 .ost-note-card a,
 .ost-library-card a {
   color: #1D4ED8;
