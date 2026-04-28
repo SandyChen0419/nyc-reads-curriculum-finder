@@ -610,7 +610,15 @@
       if (!res.ok) throw new Error('Failed to search');
       const json = await res.json();
       console.log('[Search] API response', json);
-      renderResults(Array.isArray(json.results) ? json.results : []);
+      const items = Array.isArray(json.results) ? json.results : [];
+      if (items.length === 0 && (json.message || json.messageHtml)) {
+        clearRoleBlocks();
+        if (els.resultsMount) {
+          els.resultsMount.innerHTML = '<div class="empty">' + (json.messageHtml || escapeHTML(json.message || 'No results.')) + '</div>';
+        }
+      } else {
+        renderResults(items);
+      }
     } catch (e) {
       console.error('Failed to fetch /api/search', e);
       clearRoleBlocks();
