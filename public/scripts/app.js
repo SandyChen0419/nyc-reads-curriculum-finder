@@ -398,7 +398,9 @@
     const readingListIntro = isOstRoleSelected()
       ? (
         '<div class="reading-list-intro">' +
-          'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital library collection. While OST providers do not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can also find the titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL). To learn more about Sora, click <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">here</a>.' +
+          'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning and engage readers. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, accessibility, and interests.' +
+          '<br><br>' +
+          'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection. While OST providers do not have direct access, these links are included so the students you work with can access the texts through their NYCPS accounts. If you are interested in using one of these books in your program, you can also find the titles through the New York Public Library (NYPL), Brooklyn Public Library (BPL), or Queens Public Library (QPL). To learn more about Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>.' +
         '</div>'
       )
       : isParentCaregiverRoleSelected()
