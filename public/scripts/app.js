@@ -420,6 +420,8 @@
       : isSchoolLeaderTeacherRoleSelected()
         ? (
           '<div class="reading-list-intro">' +
+            'The NYCPS Office of Library Services curated these reading lists to support aligned, knowledge-rich instruction, as well as student interests; they are not the exact books used in class, but recommended texts to extend learning, curiosity, and wonderings. These texts can help build background knowledge, vocabulary, and understanding of key topics students are studying and care about. They were chosen based on alignment to module topics, diverse and authentic representation, text quality, and accessibility.' +
+            '<br><br>' +
             'The links direct to the Citywide Digital Library on <a href="https://soraapp.com/welcome/login/310229" target="_blank" rel="noopener noreferrer">Sora</a>, NYCPS’s digital collection, which all NYCPS students can access for free. To learn more about using Sora, click <a href="https://company.overdrive.com/k-12-schools/discover-sora/nyc-edu/" target="_blank" rel="noopener noreferrer">here</a>, and access <a href="https://rise.articulate.com/share/fN3jh1drp20vtC616toVONChj5Qm1veP?_ga=2.255888331.1789937731.1686316284-864601938.1686316284#/lessons/jy4Eps279hwoEQjn6rlV9F9u8DVJCzWP" target="_blank" rel="noopener noreferrer">teacher training resources</a> here.' +
           '</div>'
         )
