@@ -146,10 +146,16 @@
           return !!roleSelect && String(roleSelect.value || '').trim() === OST_ROLE;
         }
 
+        function shouldPatch(intro) {
+          if (!intro) return false;
+          if (!isEnglishSelected()) return false;
+          if (isOstRoleSelected()) return true;
+          return intro.textContent.indexOf('The links direct to the Citywide Digital Library on') !== -1;
+        }
+
         function applyPatch() {
-          if (!isEnglishSelected() || !isOstRoleSelected()) return;
           const intro = document.querySelector('#resultsMount .reading-list-intro');
-          if (!intro) return;
+          if (!shouldPatch(intro)) return;
           intro.innerHTML = UPDATED_OST_HTML;
         }
 
@@ -159,7 +165,9 @@
           const languageSelect = document.getElementById('languageSelect');
 
           if (resultsMount && typeof MutationObserver !== 'undefined') {
-            const observer = new MutationObserver(applyPatch);
+            const observer = new MutationObserver(function () {
+              applyPatch();
+            });
             observer.observe(resultsMount, { childList: true, subtree: true });
           }
 
@@ -167,6 +175,8 @@
           if (languageSelect) languageSelect.addEventListener('change', function () { setTimeout(applyPatch, 0); });
 
           setTimeout(applyPatch, 0);
+          setTimeout(applyPatch, 250);
+          setTimeout(applyPatch, 1000);
         });
       }());
     </script>
