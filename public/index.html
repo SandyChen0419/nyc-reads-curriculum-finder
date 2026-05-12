@@ -128,6 +128,48 @@
     </noscript>
 
     <script src="/scripts/app.js?v=20260512-ost-reading-list-update" defer></script>
+    <script>
+      (function patchOstReadingListCopy() {
+        const OST_ROLE = 'OST/Afterschool Provider';
+        const UPDATED_OST_HTML =
+          'The NYCPS Office of Library Services curated these reading lists to support knowledge-building beyond the school day; they are not the exact books used in class, but recommended texts to extend learning and engage readers. These texts help build background knowledge, vocabulary, and understanding of key topics students are studying. The texts were curated using criteria such as alignment to module topics, diverse and authentic representation, text quality, accessibility, and student interests.' +
+          '<br><br>' +
+          'These reading lists can help you identify texts connected to what students are learning in school. If you are interested in using one of these books in your program, you can look for the titles through the <a href="https://www.nypl.org/" target="_blank" rel="noopener noreferrer">New York Public Library (NYPL)</a>, <a href="https://www.bklynlibrary.org/" target="_blank" rel="noopener noreferrer">Brooklyn Public Library (BPL)</a>, or <a href="http://www.queenslibrary.org/" target="_blank" rel="noopener noreferrer">Queens Public Library (QPL)</a>. You can also download a spreadsheet of the full reading lists here.';
+
+        function isEnglishSelected() {
+          const languageSelect = document.getElementById('languageSelect');
+          return !languageSelect || (languageSelect.value || 'en') === 'en';
+        }
+
+        function isOstRoleSelected() {
+          const roleSelect = document.getElementById('filterRole');
+          return !!roleSelect && String(roleSelect.value || '').trim() === OST_ROLE;
+        }
+
+        function applyPatch() {
+          if (!isEnglishSelected() || !isOstRoleSelected()) return;
+          const intro = document.querySelector('#resultsMount .reading-list-intro');
+          if (!intro) return;
+          intro.innerHTML = UPDATED_OST_HTML;
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+          const resultsMount = document.getElementById('resultsMount');
+          const roleSelect = document.getElementById('filterRole');
+          const languageSelect = document.getElementById('languageSelect');
+
+          if (resultsMount && typeof MutationObserver !== 'undefined') {
+            const observer = new MutationObserver(applyPatch);
+            observer.observe(resultsMount, { childList: true, subtree: true });
+          }
+
+          if (roleSelect) roleSelect.addEventListener('change', function () { setTimeout(applyPatch, 0); });
+          if (languageSelect) languageSelect.addEventListener('change', function () { setTimeout(applyPatch, 0); });
+
+          setTimeout(applyPatch, 0);
+        });
+      }());
+    </script>
   </body>
   </html>
 
