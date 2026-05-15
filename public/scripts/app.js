@@ -867,6 +867,7 @@
       books: state.lastDetails.books || [],
     });
     applyRoleBlocks(html);
+    stripReadingListLinksForOst();
     const prevBtn = document.getElementById('btnPrev');
     const nextBtn = document.getElementById('btnNext');
     if (prevBtn && nextBtn) {
@@ -881,6 +882,24 @@
     if (!prevBtn || !nextBtn) return;
     prevBtn.disabled = (state.activeIndex <= 0);
     nextBtn.disabled = (state.activeIndex >= (state.modules ? state.modules.length - 1 : 0));
+  }
+
+  function stripReadingListLinksForOst() {
+    if (!isOstRoleSelected()) return;
+    if (!els.resultsMount) return;
+
+    const titleLinks = els.resultsMount.querySelectorAll('.book-item .book-title a');
+    titleLinks.forEach(anchor => {
+      anchor.replaceWith(document.createTextNode(anchor.textContent || ''));
+    });
+
+    const imageLinks = els.resultsMount.querySelectorAll('.book-item .book-thumb a');
+    imageLinks.forEach(anchor => {
+      while (anchor.firstChild) {
+        anchor.parentNode.insertBefore(anchor.firstChild, anchor);
+      }
+      anchor.remove();
+    });
   }
 
   async function doSearch() {
