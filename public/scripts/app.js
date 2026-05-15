@@ -646,16 +646,17 @@
     const { district, school, grade, curriculum, module_number, module_title, dateLabel, essential_question, text_genres, books } = model;
     const eqParagraph = '<p>' + escapeHTML(essential_question || '') + '</p>';
     const genrePills = (text_genres || []).map(g => '<span class="pill">' + escapeHTML(g) + '</span>').join('');
+    const disableBookLinks = isOstRoleSelected();
     const bookList = (books || []).map(b => {
       const title = b && b.title ? String(b.title) : '';
       const link = b && b.url ? String(b.url) : '';
       const cover = b && (b.coverImageUrl || b.coverimageurl) ? String(b.coverImageUrl || b.coverimageurl) : '';
       const imgTag = cover ? ('<img src="' + cover + '" alt="' + escapeHTML(title || 'Book cover') + '" onerror="this.onerror=null; this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" />') : '';
-      const img = link && imgTag
+      const img = !disableBookLinks && link && imgTag
         ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + imgTag + '</a>')
         : imgTag;
       const fallback = '<div class="book-fallback"' + (cover ? '' : ' style="display:flex;"') + '>' + (state.selectedLanguage === 'es' ? 'Portada no disponible por ahora' : 'Book cover not available for now') + '</div>';
-      const titleHtml = link ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(title) + '</a>') : escapeHTML(title);
+      const titleHtml = (!disableBookLinks && link) ? ('<a href="' + link + '" target="_blank" rel="noopener noreferrer">' + escapeHTML(title) + '</a>') : escapeHTML(title);
       return '<li class="book-item"><div class="book-thumb">' + img + fallback + '</div><div class="book-title">' + titleHtml + '</div></li>';
     }).join('');
     // Recommended Text section removed
